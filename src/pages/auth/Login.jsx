@@ -38,23 +38,31 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.id.trim() || !form.password) {
-      setError("Please enter both your phone/email and password.");
-      return;
-    }
-    if (form.password.length < 6) {
-      setError("Password must be at least 6 characters long.");
-      return;
-    }
-    setLoading(true);
-    try {
-      // TODO: Replace this with the real API call.
-      await new Promise((r) => setTimeout(r, 900));
 
-      login(form.id, remember);
+    if (!form.id.trim() || !form.password) {
+      setError("Please enter both username and password.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      // Actual Login API call through AuthContext
+      await login(form.id.trim(), form.password, remember);
+
+      // Login successful
       navigate("/", { replace: true });
-    } catch {
-      setError("Login failed. Please try again.");
+    } catch (err) {
+      console.error("Login Error:", err);
+
+      const message =
+        err.response?.data?.message ||
+        err.response?.data?.title ||
+        err.message ||
+        "Invalid username or password.";
+
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -73,9 +81,7 @@ export default function Login() {
             SB
           </div>
           <div>
-            <p className="text-base font-bold leading-tight">
-              Shree Bhanu
-            </p>
+            <p className="text-base font-bold leading-tight">Shree Bhanu</p>
             <p className="text-xs text-violet-200">Technical Solutions</p>
           </div>
         </div>
@@ -147,7 +153,7 @@ export default function Login() {
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold text-slate-700">
-                  Phone or email
+                  Username
                 </label>
                 <div className="flex items-center gap-3 rounded-full border border-violet-100 bg-white px-4 py-3 transition focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-100">
                   <User size={17} className="text-slate-400" />
@@ -156,7 +162,7 @@ export default function Login() {
                     value={form.id}
                     onChange={onChange}
                     autoComplete="username"
-                    placeholder="Enter phone or email"
+                    placeholder="Enter username"
                     className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
                   />
                 </div>
