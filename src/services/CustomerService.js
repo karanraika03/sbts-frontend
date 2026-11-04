@@ -22,3 +22,34 @@ export const getCustomerList = async (params = {}) => {
 
   return response.data;
 };
+
+export const createCustomer = async (formData) => {
+  const response = await http.post("/api/CustomerRegistration", formData);
+
+  return response.data;
+};
+
+export const getCustomerById = async (id) => {
+  const response = await http.get(`/api/CustomerRegistration/view/${id}`);
+
+  return response.data;
+};
+
+export const updateCustomer = async (formData) => {
+  const response = await http.post(
+    "/api/CustomerRegistration/update",
+    formData,
+  );
+
+  return response.data;
+};
+
+export const getGenders = async () => {
+  const response = await http.get("/api/CustomerDropdown/genders");
+  return response.data;
+};
+
+export const getStates = async () => {
+  const response = await http.get("/api/CustomerDropdown/states");
+  return response.data;
+};
