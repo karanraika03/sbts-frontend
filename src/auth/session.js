@@ -27,7 +27,7 @@ export const isTokenExpired = (token) => {
   return payload.exp * 1000 <= Date.now();
 };
 
-export const createAuthSession = (token, remember = true) => {
+export const createAuthSession = (token) => {
   const claims = decodeToken(token);
 
   if (!claims || isTokenExpired(token)) {
@@ -41,24 +41,20 @@ export const createAuthSession = (token, remember = true) => {
     name: claims[NAME_CLAIM] || claims.name || "",
   };
 
-  const session = {
-    token,
-    user,
-  };
+  const session = { token, user };
 
-  const storage = remember ? localStorage : sessionStorage;
-  const otherStorage = remember ? sessionStorage : localStorage;
+  // Current browser tab only
+  sessionStorage.setItem(AUTH_KEY, JSON.stringify(session));
 
-  otherStorage.removeItem(AUTH_KEY);
-  storage.setItem(AUTH_KEY, JSON.stringify(session));
+  // Remove any previous persistent session
+  localStorage.removeItem(AUTH_KEY);
 
   return session;
 };
 
 export const getAuthSession = () => {
   try {
-    const raw =
-      localStorage.getItem(AUTH_KEY) || sessionStorage.getItem(AUTH_KEY);
+    const raw = sessionStorage.getItem(AUTH_KEY);
 
     if (!raw) return null;
 

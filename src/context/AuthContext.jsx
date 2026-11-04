@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
       throw new Error(response?.message || "Login failed");
     }
 
-    const authSession = createAuthSession(response.token, remember);
+    const authSession = createAuthSession(response.token);
 
     setSession(authSession);
 

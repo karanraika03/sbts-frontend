@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { Routes, Route, Navigate, NavLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  NavLink,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import {
   Home,
   LayoutGrid,
@@ -15,7 +22,8 @@ import {
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import Dashboard from "../pages/dashboard/Dashboard";
-import Customers from "../pages/customer/Customers";
+import CustomerList from "../pages/customer/CustomerList";
+import Customer from "../pages/customer/Customers";
 import Jobs from "../pages/jobs/Jobs";
 import NewJobs from "../pages/jobs/NewJobs";
 import Inventory from "../pages/partsandinventory/Inventory";
@@ -27,7 +35,9 @@ import { useAuth } from "../context/AuthContext";
 const pageInfo = {
   "/": "Dashboard",
   "/jobs": "Repair Jobs",
+  "/jobs-new": "New Job",
   "/customers": "Customers",
+  "/customers/new": "Add Customer",
   "/whatsapp": "WhatsApp",
   "/inventory": "Parts & Inventory",
   "/billing": "Billing & Invoices",
@@ -122,7 +132,9 @@ function Shell() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/jobs-new" element={<NewJobs />} />
-            <Route path="/customers" element={<Customers />} />
+            <Route path="/customers" element={<CustomerList />} />
+
+            <Route path="/customers/new" element={<Customer />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/whatsapp" element={<WhatsApp />} />
             <Route
