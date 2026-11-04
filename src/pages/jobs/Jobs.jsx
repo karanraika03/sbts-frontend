@@ -5,9 +5,14 @@ import {
   Search,
   Rows3,
   LayoutGrid,
-  ArrowUpRight,
+  Eye,
+  Pencil,
+  Tag,
   MessageCircle,
+  Send,
   Printer,
+  Star,
+  Trash2,
   X,
 } from "lucide-react";
 import PageHeader from "../../components/PageHeader";
@@ -94,17 +99,60 @@ function IconBtn({ onClick, title, children, tone = "violet" }) {
   );
 }
 
-function Actions({ j, onOpen }) {
+function Actions({
+  j,
+  onOpen,
+  onEdit,
+  onPriority,
+  onFavorite,
+  onDelete,
+  isFavorite,
+}) {
+  const shareJob = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Job ${jobNo(j.id)}`,
+          text: `${j.customer} · ${j.device} · ${j.status}`,
+        });
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error("Unable to share job", error);
+        }
+      }
+      return;
+    }
+    openWhatsApp(j);
+  };
+
   return (
-    <div className="flex items-center justify-end gap-2">
-      <IconBtn title="Open job" onClick={() => onOpen(j)}>
-        <ArrowUpRight size={16} />
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
+      <IconBtn title="View job" onClick={() => onOpen(j)}>
+        <Eye size={16} />
+      </IconBtn>
+      <IconBtn title="Edit job" onClick={() => onEdit(j)}>
+        <Pencil size={15} />
+      </IconBtn>
+      <IconBtn title={`Set ${j.priority === "High" ? "medium" : "high"} priority`} onClick={() => onPriority(j)}>
+        <Tag size={15} className={j.priority === "High" ? "fill-current" : ""} />
       </IconBtn>
       <IconBtn title="WhatsApp" tone="green" onClick={() => openWhatsApp(j)}>
         <MessageCircle size={16} />
       </IconBtn>
       <IconBtn title="Print label" onClick={() => printJob(j)}>
         <Printer size={16} />
+      </IconBtn>
+      <IconBtn title="Share job" onClick={shareJob}>
+        <Send size={15} />
+      </IconBtn>
+      <IconBtn
+        title={isFavorite ? "Remove favorite" : "Add favorite"}
+        onClick={() => onFavorite(j)}
+      >
+        <Star size={15} className={isFavorite ? "fill-amber-400 text-amber-500" : ""} />
+      </IconBtn>
+      <IconBtn title="Delete job" onClick={() => onDelete(j)}>
+        <Trash2 size={15} className="text-rose-600" />
       </IconBtn>
     </div>
   );
@@ -123,17 +171,20 @@ export default function Jobs() {
   const [tab, setTab] = useState("All");
   const [view, setView] = useState("table");
   const [selected, setSelected] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [jobsList, setJobsList] = useState(jobs);
+  const [favorites, setFavorites] = useState(() => new Set());
 
   const counts = useMemo(
     () =>
-      Object.fromEntries(TABS.map((t) => [t.key, jobs.filter(t.test).length])),
-    [],
+      Object.fromEntries(TABS.map((t) => [t.key, jobsList.filter(t.test).length])),
+    [jobsList],
   );
 
   const filtered = useMemo(() => {
     const t = TABS.find((x) => x.key === tab);
     const q = search.toLowerCase();
-    return jobs.filter(
+    return jobsList.filter(
       (j) =>
         t.test(j) &&
         [j.id, j.customer, j.device, j.issue, j.phone, j.code]
@@ -141,7 +192,43 @@ export default function Jobs() {
           .toLowerCase()
           .includes(q),
     );
-  }, [search, tab]);
+  }, [jobsList, search, tab]);
+
+  const updateJob = (job, changes) => {
+    const updated = { ...job, ...changes };
+    setJobsList((current) =>
+      current.map((item) => (item.id === job.id ? updated : item)),
+    );
+    if (selected?.id === job.id) setSelected(updated);
+    return updated;
+  };
+
+  const editJob = (job) => {
+    setSelected(job);
+    setEditing(true);
+  };
+
+  const deleteJob = (job) => {
+    if (!window.confirm(`Delete job ${jobNo(job.id)}? This cannot be undone.`)) {
+      return;
+    }
+    setJobsList((current) => current.filter((item) => item.id !== job.id));
+    setFavorites((current) => {
+      const next = new Set(current);
+      next.delete(job.id);
+      return next;
+    });
+    if (selected?.id === job.id) setSelected(null);
+  };
+
+  const toggleFavorite = (job) => {
+    setFavorites((current) => {
+      const next = new Set(current);
+      if (next.has(job.id)) next.delete(job.id);
+      else next.add(job.id);
+      return next;
+    });
+  };
 
   return (
     <div>
@@ -311,7 +398,19 @@ export default function Jobs() {
                       <StatusBadge status={j.status} />
                     </td>
                     <td className="px-5 py-3.5">
-                      <Actions j={j} onOpen={setSelected} />
+                      <Actions
+                        j={j}
+                        onOpen={setSelected}
+                        onEdit={editJob}
+                        onPriority={(job) =>
+                          updateJob(job, {
+                            priority: job.priority === "High" ? "Medium" : "High",
+                          })
+                        }
+                        onFavorite={toggleFavorite}
+                        onDelete={deleteJob}
+                        isFavorite={favorites.has(j.id)}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -324,7 +423,7 @@ export default function Jobs() {
             )}
           </div>
           <div className="border-t border-slate-100 px-5 py-3 text-[11px] text-slate-400">
-            Showing {filtered.length} of {jobs.length} jobs
+            Showing {filtered.length} of {jobsList.length} jobs
           </div>
         </section>
       )}
@@ -371,7 +470,20 @@ export default function Jobs() {
                           <span className="text-[11px] text-slate-500">
                             {j.date}
                           </span>
-                          <Actions j={j} onOpen={setSelected} />
+                          <Actions
+                            j={j}
+                            onOpen={setSelected}
+                            onEdit={editJob}
+                            onPriority={(job) =>
+                              updateJob(job, {
+                                priority:
+                                  job.priority === "High" ? "Medium" : "High",
+                              })
+                            }
+                            onFavorite={toggleFavorite}
+                            onDelete={deleteJob}
+                            isFavorite={favorites.has(j.id)}
+                          />
                         </div>
                       </div>
                     ))}
@@ -413,13 +525,74 @@ export default function Jobs() {
                 </p>
               </div>
               <button
-                onClick={() => setSelected(null)}
+                onClick={() => {
+                  setSelected(null);
+                  setEditing(false);
+                }}
                 className="rounded-full p-2 text-slate-400 transition hover:bg-violet-50 hover:text-violet-600"
               >
                 <X size={18} />
               </button>
             </div>
 
+            {editing ? (
+              <div className="mt-5 space-y-3">
+                {[
+                  ["customer", "Customer"],
+                  ["device", "Device"],
+                  ["issue", "Issue"],
+                  ["amount", "Estimate"],
+                  ["date", "Date"],
+                ].map(([key, label]) => (
+                  <label key={key} className="block">
+                    <span className="mb-1 block text-xs font-bold text-slate-500">
+                      {label}
+                    </span>
+                    <input
+                      type={key === "amount" ? "number" : "text"}
+                      value={selected[key] ?? ""}
+                      onChange={(event) =>
+                        setSelected((current) => ({
+                          ...current,
+                          [key]:
+                            key === "amount"
+                              ? Number(event.target.value)
+                              : event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-xl border border-violet-100 px-3 py-2 text-sm outline-none focus:border-violet-400"
+                    />
+                  </label>
+                ))}
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold text-slate-500">
+                    Status
+                  </span>
+                  <select
+                    value={selected.status}
+                    onChange={(event) =>
+                      setSelected((current) => ({
+                        ...current,
+                        status: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400"
+                  >
+                    {[
+                      "Received",
+                      "Diagnosing",
+                      "Awaiting Parts",
+                      "In Repair",
+                      "Ready for Pickup",
+                      "Overdue",
+                      "Delivered",
+                    ].map((status) => (
+                      <option key={status}>{status}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : (
             <div className="mt-4 grid grid-cols-2 gap-3">
               {[
                 ["Device", selected.device],
@@ -439,10 +612,50 @@ export default function Jobs() {
                 </div>
               ))}
             </div>
+            )}
 
-            <div className="mt-4 flex items-center justify-between">
-              <StatusBadge status={selected.status} />
-              <Actions j={selected} onOpen={() => {}} />
+            <div className="mt-5 flex items-center justify-between gap-3">
+              {editing ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelected(jobsList.find((job) => job.id === selected.id));
+                      setEditing(false);
+                    }}
+                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateJob(selected, {});
+                      setEditing(false);
+                    }}
+                    className="rounded-full bg-violet-600 px-5 py-2 text-sm font-bold text-white"
+                  >
+                    Save changes
+                  </button>
+                </>
+              ) : (
+                <>
+                  <StatusBadge status={selected.status} />
+                  <Actions
+                    j={selected}
+                    onOpen={setSelected}
+                    onEdit={editJob}
+                    onPriority={(job) =>
+                      updateJob(job, {
+                        priority: job.priority === "High" ? "Medium" : "High",
+                      })
+                    }
+                    onFavorite={toggleFavorite}
+                    onDelete={deleteJob}
+                    isFavorite={favorites.has(selected.id)}
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>
