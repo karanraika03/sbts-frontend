@@ -151,7 +151,7 @@ const whatsapp = [
 /* ---------- map data ---------- */
 const MAP_W = 820;
 const MAP_H = 765;
-// Approximate district outline. Real GeoJSON path aaye to is array ko replace kar dena.
+// Approximate district outline. Replace this array when a real GeoJSON path is available.
 const OUTLINE = [
   [367, 170],
   [372, 145],

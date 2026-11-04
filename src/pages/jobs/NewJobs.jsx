@@ -302,7 +302,8 @@ export default function NewJobs() {
     }
     setSaving(true);
     try {
-      // TODO: yaha apni real API call lagana, payload = { jobNo: NEXT_JOB_NO, ...f }
+      // TODO: Replace this with the real API call using this payload.
+      // { jobNo: NEXT_JOB_NO, ...f }
       await new Promise((r) => setTimeout(r, 600));
 
       if (f.sendWhatsapp && f.whatsappConsent) {

@@ -39,22 +39,22 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.id.trim() || !form.password) {
-      setError("Phone/email aur password dono daalo.");
+      setError("Please enter both your phone/email and password.");
       return;
     }
     if (form.password.length < 6) {
-      setError("Password kam se kam 6 characters ka hona chahiye.");
+      setError("Password must be at least 6 characters long.");
       return;
     }
     setLoading(true);
     try {
-      // TODO: yaha apni real API call lagana
+      // TODO: Replace this with the real API call.
       await new Promise((r) => setTimeout(r, 900));
 
       login(form.id, remember);
       navigate("/", { replace: true });
     } catch {
-      setError("Login fail ho gaya. Dobara try karo.");
+      setError("Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -87,7 +87,7 @@ export default function Login() {
             sorted and simple.
           </h1>
           <p className="mt-4 max-w-md text-sm text-violet-100">
-            Jobs, customers, parts and WhatsApp updates, sab ek dashboard me.
+            Jobs, customers, parts, and WhatsApp updates—all in one dashboard.
           </p>
           <div className="mt-8 space-y-4">
             {features.map(({ icon: Icon, text }) => (
@@ -225,7 +225,7 @@ export default function Login() {
           </div>
 
           <p className="mt-6 text-center text-xs text-slate-400">
-            Trouble logging in? Shop admin se contact karo.
+            Trouble logging in? Contact your shop administrator.
           </p>
         </div>
       </div>
