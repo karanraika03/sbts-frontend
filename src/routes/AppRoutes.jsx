@@ -110,7 +110,9 @@ function PublicRoute({ children }) {
 function Shell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const title = pageInfo[location.pathname] || "Dashboard";
+
   return (
     <div className="min-h-screen bg-[#f7f6fc]">
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
