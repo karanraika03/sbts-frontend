@@ -25,7 +25,7 @@ function CustomerIdentity({ customer }) {
 
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[11px] font-extrabold text-violet-700">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[11px] font-bold text-violet-700">
         {initials}
       </span>
       <span className="min-w-0">
@@ -82,7 +82,7 @@ export default function Customers() {
     <div className="customer-motion">
       <header className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-[30px]">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-[30px]">
             Customers
           </h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -105,7 +105,7 @@ export default function Customers() {
             <p className="text-xs font-medium text-slate-500 sm:text-sm">
               {item.label}
             </p>
-            <p className="mt-1.5 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-[28px]">
+            <p className="mt-1.5 text-2xl font-bold tracking-tight text-slate-900 sm:text-[28px]">
               {item.value}
             </p>
           </div>

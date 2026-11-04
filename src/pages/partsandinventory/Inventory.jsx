@@ -37,7 +37,7 @@ export default function Inventory() {
               {s.l}
               <s.i size={19} className="text-violet-500" />
             </div>
-            <p className="mt-2 text-2xl font-extrabold text-slate-800">{s.v}</p>
+            <p className="mt-2 text-2xl font-bold text-slate-800">{s.v}</p>
           </div>
         ))}
       </div>

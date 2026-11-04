@@ -41,7 +41,7 @@ export default function Placeholder({
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-100 text-violet-600">
             <Icon size={29} />
           </div>
-          <h3 className="text-base font-extrabold text-slate-800">
+          <h3 className="text-base font-bold text-slate-800">
             {title} workspace
           </h3>
           <p className="mt-2 max-w-md text-xs leading-6 text-slate-500">

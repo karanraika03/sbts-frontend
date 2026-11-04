@@ -434,7 +434,7 @@ export default function Dashboard() {
         <section className="dashboard-card rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="text-lg font-extrabold text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900">
                 Revenue overview
               </h3>
               <p className="mt-1 text-sm text-slate-500">
@@ -454,7 +454,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-4">
-            <strong className="text-4xl font-extrabold tracking-tight text-slate-900">
+            <strong className="text-4xl font-bold tracking-tight text-slate-900">
               {rev.total}
             </strong>
             <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
@@ -545,7 +545,7 @@ export default function Dashboard() {
         <section className="dashboard-card rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="text-lg font-extrabold text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900">
                 Statistics
               </h3>
               <p className="mt-1 text-sm text-slate-500">Open jobs by stage</p>
@@ -580,7 +580,7 @@ export default function Dashboard() {
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <strong className="text-4xl font-extrabold text-slate-900">
+              <strong className="text-4xl font-bold text-slate-900">
                 {pieTotal}
               </strong>
               <span className="text-sm text-slate-500">Open jobs</span>
@@ -615,7 +615,7 @@ export default function Dashboard() {
       <section className="dashboard-card mt-5 rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-lg font-extrabold text-slate-900">
+            <h3 className="text-lg font-bold text-slate-900">
               Customers across Hisar district
             </h3>
             <p className="mt-1 text-sm text-slate-500">
@@ -725,7 +725,7 @@ export default function Dashboard() {
                   transform: "translate(-50%, calc(-100% - 22px))",
                 }}
               >
-                <p className="text-base font-extrabold text-slate-900">
+                <p className="text-base font-bold text-slate-900">
                   {activeV.name}
                 </p>
                 <p className="mt-0.5 text-xs text-slate-500">
@@ -777,7 +777,7 @@ export default function Dashboard() {
 
           {/* Right panel */}
           <div className="dashboard-card flex min-w-0 flex-col">
-            <p className="text-[11px] font-extrabold uppercase tracking-[1.5px] text-slate-700">
+            <p className="text-[11px] font-bold uppercase tracking-[1.5px] text-slate-700">
               Hisar district
             </p>
             <p className="mt-1 text-sm text-slate-500">
@@ -792,7 +792,7 @@ export default function Dashboard() {
               ].map((s) => (
                 <div key={s.l} className="dashboard-card rounded-xl bg-[#f7f5fd] p-4">
                   <p className="text-xs text-slate-500">{s.l}</p>
-                  <p className="mt-1 text-xl font-extrabold text-slate-900">
+                  <p className="mt-1 text-xl font-bold text-slate-900">
                     {s.v}
                   </p>
                 </div>
@@ -805,7 +805,7 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-5 flex items-center justify-between">
-              <h4 className="text-sm font-extrabold text-slate-900">
+              <h4 className="text-sm font-bold text-slate-900">
                 All villages
               </h4>
               <span className="text-xs text-slate-500">
@@ -902,7 +902,7 @@ export default function Dashboard() {
         <section className="dashboard-card rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="text-lg font-extrabold text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900">
                 Needs attention
               </h3>
               <p className="mt-1 text-sm text-slate-500">
@@ -953,7 +953,7 @@ export default function Dashboard() {
               <MessageCircle size={22} />
             </div>
             <div>
-              <h3 className="text-lg font-extrabold text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900">
                 WhatsApp today
               </h3>
               <p className="text-sm text-slate-500">

@@ -170,11 +170,11 @@ function Bubble({ children }) {
   return (
     <section className="overflow-hidden rounded-2xl shadow-sm">
       <div className="flex items-center gap-2.5 bg-[#1f6f5a] px-4 py-3 text-white">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-extrabold text-[#1f6f5a]">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-bold text-[#1f6f5a]">
           SB
         </div>
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-extrabold leading-tight">Shree Bhanu Technical Solutions</p>
+          <p className="truncate text-[13px] font-bold leading-tight">Shree Bhanu Technical Solutions</p>
           <p className="text-[10px] text-emerald-100">Business account</p>
         </div>
       </div>
@@ -281,7 +281,7 @@ export default function WhatsApp() {
       {/* Header */}
       <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-[28px]">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-[28px]">
             WhatsApp Center
           </h2>
           <p className="mt-1 text-sm text-slate-500">Every customer message the shop sends, in one place.</p>
@@ -292,7 +292,7 @@ export default function WhatsApp() {
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
           </span>
           <div className="leading-tight">
-            <p className="text-xs font-extrabold text-slate-800">Connected</p>
+            <p className="text-xs font-bold text-slate-800">Connected</p>
             <p className="text-[11px] text-slate-500">Sending from {SHOP_NUMBER}</p>
           </div>
         </div>
@@ -316,7 +316,7 @@ export default function WhatsApp() {
                       : "border-violet-100 bg-white hover:border-violet-300 hover:bg-violet-50/40"
                   }`}
                 >
-                  <p className="text-[13px] font-extrabold text-slate-800">{t.name}</p>
+                  <p className="text-[13px] font-bold text-slate-800">{t.name}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     <span className="text-[11px] text-slate-500">{t.category || t.sub}</span>
                     <Badge>{t.id === "custom" ? t.status : status[t.id]}</Badge>
@@ -332,7 +332,7 @@ export default function WhatsApp() {
           {!isCustom ? (
             <>
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-lg font-extrabold text-slate-900">{tpl.name}</h3>
+                <h3 className="text-lg font-bold text-slate-900">{tpl.name}</h3>
                 <Badge>{status[tpl.id]}</Badge>
               </div>
 
@@ -392,7 +392,7 @@ export default function WhatsApp() {
           ) : (
             <>
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-lg font-extrabold text-slate-900">Custom message</h3>
+                <h3 className="text-lg font-bold text-slate-900">Custom message</h3>
                 <Badge>Needs open window</Badge>
               </div>
 
@@ -448,7 +448,7 @@ export default function WhatsApp() {
 
         {/* Preview */}
         <section className="rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm lg:col-span-2 xl:col-span-1 xl:self-start">
-          <p className="mb-3 text-sm font-extrabold text-slate-900">What the customer sees</p>
+          <p className="mb-3 text-sm font-bold text-slate-900">What the customer sees</p>
           <Bubble>
             <p key={activeId} className="fade-up whitespace-pre-wrap">
               {bold(previewText)}
@@ -460,13 +460,13 @@ export default function WhatsApp() {
 
       {/* Automation rules */}
       <section className="mt-5 rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm sm:p-5">
-        <h3 className="text-lg font-extrabold text-slate-900">Automation rules</h3>
+        <h3 className="text-lg font-bold text-slate-900">Automation rules</h3>
         <p className="mt-1 text-sm text-slate-500">Messages the shop sends without anyone pressing a button.</p>
         <div className="mt-3 grid grid-cols-1 gap-x-10 md:grid-cols-2">
           {RULES.map((r) => (
             <div key={r.key} className="flex items-center justify-between gap-4 border-b border-slate-100 py-3.5 last:border-b-0 md:[&:nth-last-child(2)]:border-b-0">
               <div>
-                <p className="text-[13px] font-extrabold text-slate-800">{r.title}</p>
+                <p className="text-[13px] font-bold text-slate-800">{r.title}</p>
                 <p className="mt-0.5 text-xs text-slate-500">{r.desc}</p>
               </div>
               <Toggle on={rules[r.key]} onChange={(v) => setRules((p) => ({ ...p, [r.key]: v }))} />
@@ -478,7 +478,7 @@ export default function WhatsApp() {
       {/* Message log */}
       <section className="mt-5 overflow-hidden rounded-2xl border border-violet-100/80 bg-white shadow-sm">
         <div className="flex items-center justify-between p-4 sm:px-5">
-          <h3 className="text-lg font-extrabold text-slate-900">Message log</h3>
+          <h3 className="text-lg font-bold text-slate-900">Message log</h3>
           <span className="text-xs text-slate-400">Latest 10</span>
         </div>
         <div className="overflow-x-auto">
@@ -492,7 +492,7 @@ export default function WhatsApp() {
             </thead>
             <tbody>
               <tr className="bg-[#f5f3fd]">
-                <td colSpan={5} className="px-5 py-2 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                <td colSpan={5} className="px-5 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Today
                 </td>
               </tr>

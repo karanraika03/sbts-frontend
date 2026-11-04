@@ -91,11 +91,11 @@ export default function Sidebar({ open, onClose }) {
       >
         <div className="mb-8 flex items-center justify-between px-2">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-base font-black text-white shadow-lg shadow-violet-200">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-base font-bold text-white shadow-lg shadow-violet-200">
               SB
             </div>
             <div>
-              <h2 className="text-[15px] font-extrabold tracking-tight text-slate-800">
+              <h2 className="text-[15px] font-bold tracking-tight text-slate-800">
                 Shree Bhanu
               </h2>
               <p className="text-[11px] font-medium text-slate-500">

@@ -69,11 +69,11 @@ export default function Login() {
         <div className="login-orb login-orb-gentle pointer-events-none absolute bottom-40 right-10 h-32 w-32 rounded-full bg-white/10" />
 
         <div className="relative flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-sm font-extrabold text-violet-700">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-sm font-bold text-violet-700">
             SB
           </div>
           <div>
-            <p className="text-base font-extrabold leading-tight">
+            <p className="text-base font-bold leading-tight">
               Shree Bhanu
             </p>
             <p className="text-xs text-violet-200">Technical Solutions</p>
@@ -81,7 +81,7 @@ export default function Login() {
         </div>
 
         <div className="relative">
-          <h1 className="text-4xl font-extrabold leading-tight tracking-tight">
+          <h1 className="text-4xl font-bold leading-tight tracking-tight">
             Your repair shop,
             <br />
             sorted and simple.
@@ -114,11 +114,11 @@ export default function Login() {
         <div className="w-full max-w-[420px]">
           {/* Mobile logo */}
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-violet-600 text-sm font-extrabold text-white">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">
               SB
             </div>
             <div>
-              <p className="text-sm font-extrabold leading-tight text-slate-900">
+              <p className="text-sm font-bold leading-tight text-slate-900">
                 Shree Bhanu
               </p>
               <p className="text-xs text-slate-500">Technical Solutions</p>
@@ -126,10 +126,10 @@ export default function Login() {
           </div>
 
           <div className="rounded-[28px] border border-violet-100/80 bg-white p-6 shadow-xl shadow-violet-100/60 sm:p-8">
-            <p className="text-[10px] font-extrabold uppercase tracking-[1.5px] text-violet-500">
+            <p className="text-[10px] font-bold uppercase tracking-[1.5px] text-violet-500">
               WELCOME BACK
             </p>
-            <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-[30px]">
+            <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-[30px]">
               Sign in
             </h2>
             <p className="mt-1 text-sm text-slate-500">

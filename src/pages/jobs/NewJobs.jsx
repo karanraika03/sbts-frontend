@@ -125,7 +125,7 @@ function Section({ n, title, hint, icon: Icon, children }) {
           <Icon size={17} />
         </div>
         <div className="flex-1">
-          <h3 className="text-[15px] font-extrabold leading-tight text-slate-900">
+          <h3 className="text-[15px] font-bold leading-tight text-slate-900">
             {title}
           </h3>
           <p className="text-[11px] text-slate-400">{hint}</p>
@@ -345,7 +345,7 @@ export default function NewJobs() {
             <ChevronRight size={13} />
             <span className="text-violet-600">New job</span>
           </div>
-          <h2 className="mt-1.5 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-[28px]">
+          <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-slate-900 sm:text-[28px]">
             Register a job
           </h2>
         </div>
@@ -359,7 +359,7 @@ export default function NewJobs() {
           </button>
           <span className="rounded-full border border-violet-100 bg-white px-4 py-2 text-xs text-slate-500">
             Next job{" "}
-            <b className="font-extrabold text-violet-700">#{NEXT_JOB_NO}</b>
+            <b className="font-bold text-violet-700">#{NEXT_JOB_NO}</b>
           </span>
         </div>
       </div>
@@ -610,7 +610,7 @@ export default function NewJobs() {
               <span className="text-xs font-semibold text-violet-100">
                 Balance due
               </span>
-              <b className="text-xl font-extrabold">
+              <b className="text-xl font-bold">
                 ₹{balance.toLocaleString("en-IN")}
               </b>
             </div>
@@ -690,14 +690,14 @@ export default function NewJobs() {
 
         {/* ---------- LIVE PREVIEW ---------- */}
         <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
-          <p className="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[1.5px] text-slate-500">
+          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-slate-500">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
             Live preview
           </p>
 
           {/* Label */}
           <section className="rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-extrabold text-slate-900">
+            <h3 className="text-sm font-bold text-slate-900">
               Printed label
             </h3>
             <div
@@ -705,14 +705,14 @@ export default function NewJobs() {
               className="mt-3 rounded-xl border-2 border-slate-900 bg-white p-3 text-slate-900"
             >
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-900 text-xs font-extrabold text-white">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-900 text-xs font-bold text-white">
                   SB
                 </div>
-                <p className="text-[12px] font-extrabold uppercase leading-tight">
+                <p className="text-[12px] font-bold uppercase leading-tight">
                   {SHOP.name}
                 </p>
               </div>
-              <div className="mt-2.5 bg-slate-900 py-1 text-center text-[9px] font-extrabold uppercase tracking-wide text-white">
+              <div className="mt-2.5 bg-slate-900 py-1 text-center text-[9px] font-bold uppercase tracking-wide text-white">
                 Experts in repair and service
               </div>
               <dl className="mt-2.5 space-y-0.5 text-[11px]">
@@ -752,11 +752,11 @@ export default function NewJobs() {
           {/* WhatsApp */}
           <section className="overflow-hidden rounded-2xl shadow-sm">
             <div className="flex items-center gap-2.5 bg-[#1f6f5a] px-4 py-3 text-white">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[10px] font-extrabold text-[#1f6f5a]">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[10px] font-bold text-[#1f6f5a]">
                 SB
               </div>
               <div>
-                <p className="text-xs font-extrabold leading-tight">
+                <p className="text-xs font-bold leading-tight">
                   {SHOP.name}
                 </p>
                 <p className="text-[10px] text-emerald-100">Business account</p>

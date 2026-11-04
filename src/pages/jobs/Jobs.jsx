@@ -288,7 +288,7 @@ export default function Jobs() {
               >
                 {t.key}
                 <span
-                  className={`rounded-full px-1 py-0.5 text-[9px] font-extrabold ${
+                  className={`rounded-full px-1 py-0.5 text-[9px] font-bold ${
                     active
                       ? "bg-white/25 text-white"
                       : t.key === "Overdue"
@@ -354,7 +354,7 @@ export default function Jobs() {
                     style={{ animationDelay: `${Math.min(i, 12) * 45}ms` }}
                     className="row-in group cursor-pointer transition duration-200 hover:bg-violet-50/60"
                   >
-                    <td className="px-5 py-3.5 text-[13px] font-extrabold text-slate-800 transition group-hover:text-violet-600">
+                    <td className="px-5 py-3.5 text-[13px] font-bold text-slate-800 transition group-hover:text-violet-600">
                       {jobNo(j.id)}
                     </td>
                     <td className="px-5 py-3.5">
@@ -437,10 +437,10 @@ export default function Jobs() {
               return (
                 <div key={col.key} className="rounded-2xl bg-[#f1eefc]/70 p-3">
                   <div className="mb-3 flex items-center justify-between px-1">
-                    <h4 className="text-xs font-extrabold text-slate-700">
+                    <h4 className="text-xs font-bold text-slate-700">
                       {col.key}
                     </h4>
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-extrabold text-violet-600">
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-600">
                       {items.length}
                     </span>
                   </div>
@@ -453,7 +453,7 @@ export default function Jobs() {
                         className="row-in cursor-pointer rounded-xl border border-violet-100 bg-white p-3 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-violet-100"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-extrabold text-violet-600">
+                          <span className="text-xs font-bold text-violet-600">
                             {jobNo(j.id)}
                           </span>
                           <span className="text-xs font-bold text-slate-700">
@@ -512,10 +512,10 @@ export default function Jobs() {
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-extrabold text-violet-600">
+                <p className="text-xs font-bold text-violet-600">
                   {jobNo(selected.id)}
                 </p>
-                <h3 className="mt-1 text-xl font-extrabold text-slate-900">
+                <h3 className="mt-1 text-xl font-bold text-slate-900">
                   {selected.customer}
                 </h3>
                 <p className="text-xs text-slate-400">

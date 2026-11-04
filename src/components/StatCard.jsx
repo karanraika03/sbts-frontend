@@ -26,13 +26,13 @@ export default function StatCard({
           <Icon size={17} className="sm:h-[19px] sm:w-[19px]" />
         </div>
       </div>
-      <div className="mt-3 whitespace-nowrap text-[25px] font-extrabold tracking-tight text-slate-800 sm:text-[29px]">
+      <div className="mt-3 whitespace-nowrap text-[25px] font-bold tracking-tight text-slate-800 sm:text-[29px]">
         {value}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
         {change && (
           <span
-            className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${negative ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}
+            className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${negative ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}
           >
             {change}
           </span>
