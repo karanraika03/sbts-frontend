@@ -273,14 +273,14 @@ export default function Jobs() {
 
       {/* Filters + search */}
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((t) => {
             const active = tab === t.key;
             return (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-bold transition duration-200 active:scale-95 ${
+                className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold transition duration-200 active:scale-95 ${
                   active
                     ? "border-violet-600 bg-violet-600 text-white shadow-md shadow-violet-200"
                     : "border-violet-100 bg-white text-slate-600 hover:-translate-y-0.5 hover:border-violet-300 hover:text-violet-700"
@@ -288,7 +288,7 @@ export default function Jobs() {
               >
                 {t.key}
                 <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${
+                  className={`rounded-full px-1 py-0.5 text-[9px] font-extrabold ${
                     active
                       ? "bg-white/25 text-white"
                       : t.key === "Overdue"

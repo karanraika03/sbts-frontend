@@ -363,7 +363,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="mb-5 flex flex-col justify-between gap-3 lg:mb-6 lg:flex-row lg:items-start lg:gap-4">
         <div>
-          <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-[32px]">
             Dashboard
           </h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -386,7 +386,7 @@ export default function Dashboard() {
           </button>
           <button
             onClick={() => navigate("/jobs")}
-            className="hidden h-12 items-center gap-2 rounded-full bg-violet-600 px-5 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 lg:flex"
+            className="hidden h-10 items-center gap-2 rounded-full bg-violet-600 px-5 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 lg:flex"
           >
             <Plus size={18} /> New job
           </button>
