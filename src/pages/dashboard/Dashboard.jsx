@@ -431,7 +431,7 @@ export default function Dashboard() {
 
       {/* Revenue + Statistics */}
       <div className="dashboard-stagger mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.65fr_0.9fr]">
-        <section className="dashboard-card rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
+        <section className="dashboard-card rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-lg font-extrabold text-slate-900">
@@ -542,7 +542,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="dashboard-card rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
+        <section className="dashboard-card rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-lg font-extrabold text-slate-900">
@@ -612,7 +612,7 @@ export default function Dashboard() {
       </div>
 
       {/* Hisar district map */}
-      <section className="dashboard-card mt-5 rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-7">
+      <section className="dashboard-card mt-5 rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-extrabold text-slate-900">
@@ -637,7 +637,7 @@ export default function Dashboard() {
 
         <div className="dashboard-stagger mt-5 grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr]">
           {/* Map */}
-          <div className="dashboard-card relative overflow-hidden rounded-2xl border border-violet-100 bg-[#f7f5fd]">
+          <div className="dashboard-card relative overflow-hidden rounded-xl border border-violet-100 bg-[#f7f5fd]">
             <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="block w-full">
               <path
                 d={OUTLINE_PATH}
@@ -790,7 +790,7 @@ export default function Dashboard() {
                 { l: "Sales", v: "1,329" },
                 { l: "Revenue", v: "₹29.7 L" },
               ].map((s) => (
-                <div key={s.l} className="dashboard-card rounded-2xl bg-[#f7f5fd] p-4">
+                <div key={s.l} className="dashboard-card rounded-xl bg-[#f7f5fd] p-4">
                   <p className="text-xs text-slate-500">{s.l}</p>
                   <p className="mt-1 text-xl font-extrabold text-slate-900">
                     {s.v}
@@ -799,7 +799,7 @@ export default function Dashboard() {
               ))}
             </div>
 
-            <div className="dashboard-card mt-4 rounded-2xl bg-amber-50 px-4 py-3.5 text-sm text-amber-900">
+            <div className="dashboard-card mt-4 rounded-xl bg-amber-50 px-4 py-3.5 text-sm text-amber-900">
               Hisar city brings 26% of your customers. 170 villages have no
               customers yet.
             </div>
@@ -899,7 +899,7 @@ export default function Dashboard() {
 
       {/* Needs attention + WhatsApp */}
       <div className="dashboard-stagger mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.65fr_0.9fr]">
-        <section className="dashboard-card rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
+        <section className="dashboard-card rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-lg font-extrabold text-slate-900">
@@ -947,7 +947,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="dashboard-card rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
+        <section className="dashboard-card rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
               <MessageCircle size={22} />
