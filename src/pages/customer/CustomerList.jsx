@@ -482,7 +482,7 @@ export default function CustomerList() {
         ) : (
           <>
             {/* Desktop table (lg and up) */}
-            <div className="hidden max-h-[65vh] overflow-auto overscroll-contain lg:block">
+            <div className="hidden overflow-x-auto lg:block">
               <table className="w-full min-w-[820px] table-fixed text-left">
                 <colgroup>
                   <col className="w-[28%]" />
@@ -497,7 +497,7 @@ export default function CustomerList() {
                   <tr className="border-b border-violet-100 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                     <th className="px-5 py-3.5">Customer</th>
                     <th className="px-5 py-3.5">Phone</th>
-                    <th className="px-5 py-3.5">Village</th>
+                    <th className="px-5 py-3.5">Location</th>
                     <th className="px-5 py-3.5">Status</th>
                     <th className="px-5 py-3.5">Last visit</th>
                     <th className="px-5 py-3.5 text-right">Actions</th>
