@@ -64,9 +64,9 @@ export default function Login() {
     <div className="flex min-h-screen bg-[#faf9fd]">
       {/* Left branding panel */}
       <div className="relative hidden w-[46%] overflow-hidden bg-gradient-to-br from-violet-600 via-violet-600 to-indigo-500 p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10" />
-        <div className="pointer-events-none absolute -bottom-28 -left-16 h-72 w-72 rounded-full bg-white/10" />
-        <div className="pointer-events-none absolute bottom-40 right-10 h-32 w-32 rounded-full bg-white/10" />
+        <div className="login-orb login-orb-slow pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10" />
+        <div className="login-orb login-orb-reverse pointer-events-none absolute -bottom-28 -left-16 h-72 w-72 rounded-full bg-white/10" />
+        <div className="login-orb login-orb-gentle pointer-events-none absolute bottom-40 right-10 h-32 w-32 rounded-full bg-white/10" />
 
         <div className="relative flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-sm font-extrabold text-violet-700">

@@ -7,7 +7,7 @@ export default function StatCard({ label, value, note, change, icon: Icon, tone 
     amber: "bg-amber-100 text-amber-600",
   };
   return (
-    <div className="rounded-[20px] border border-violet-100/80 bg-white p-4 shadow-[0_4px_18px_rgba(45,35,90,0.025)] transition duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-violet-100/60 sm:rounded-[22px] sm:p-6">
+    <div className="dashboard-card rounded-[20px] border border-violet-100/80 bg-white p-4 shadow-[0_4px_18px_rgba(45,35,90,0.025)] transition duration-200 hover:shadow-lg hover:shadow-violet-100/60 sm:rounded-[22px] sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <span className="min-w-0 text-xs font-medium leading-4 text-slate-500 sm:text-[13px]">{label}</span>
         <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10 ${tones[tone]}`}><Icon size={17} className="sm:h-[19px] sm:w-[19px]" /></div>

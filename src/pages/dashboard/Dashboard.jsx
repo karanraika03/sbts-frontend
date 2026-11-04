@@ -359,7 +359,7 @@ export default function Dashboard() {
   const pieTotal = stages.reduce((a, s) => a + s.value, 0);
 
   return (
-    <div>
+    <div className="dashboard-motion">
       {/* Header */}
       <div className="mb-5 flex flex-col justify-between gap-3 lg:mb-6 lg:flex-row lg:items-start lg:gap-4">
         <div>
@@ -394,7 +394,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      <div className="dashboard-stagger grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
           label="Open Jobs"
           value="47"
@@ -430,8 +430,8 @@ export default function Dashboard() {
       </div>
 
       {/* Revenue + Statistics */}
-      <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.65fr_0.9fr]">
-        <section className="rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
+      <div className="dashboard-stagger mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.65fr_0.9fr]">
+        <section className="dashboard-card rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-lg font-extrabold text-slate-900">
@@ -542,7 +542,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
+        <section className="dashboard-card rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-lg font-extrabold text-slate-900">
@@ -612,7 +612,7 @@ export default function Dashboard() {
       </div>
 
       {/* Hisar district map */}
-      <section className="mt-5 rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-7">
+      <section className="dashboard-card mt-5 rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-extrabold text-slate-900">
@@ -635,9 +635,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr]">
+        <div className="dashboard-stagger mt-5 grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr]">
           {/* Map */}
-          <div className="relative overflow-hidden rounded-2xl border border-violet-100 bg-[#f7f5fd]">
+          <div className="dashboard-card relative overflow-hidden rounded-2xl border border-violet-100 bg-[#f7f5fd]">
             <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="block w-full">
               <path
                 d={OUTLINE_PATH}
@@ -776,7 +776,7 @@ export default function Dashboard() {
           </div>
 
           {/* Right panel */}
-          <div className="flex min-w-0 flex-col">
+          <div className="dashboard-card flex min-w-0 flex-col">
             <p className="text-[11px] font-extrabold uppercase tracking-[1.5px] text-slate-700">
               Hisar district
             </p>
@@ -784,13 +784,13 @@ export default function Dashboard() {
               97 of 267 villages have customers, plus Hisar city
             </p>
 
-            <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="dashboard-stagger mt-4 grid grid-cols-3 gap-3">
               {[
                 { l: "Customers", v: "1,129" },
                 { l: "Sales", v: "1,329" },
                 { l: "Revenue", v: "₹29.7 L" },
               ].map((s) => (
-                <div key={s.l} className="rounded-2xl bg-[#f7f5fd] p-4">
+                <div key={s.l} className="dashboard-card rounded-2xl bg-[#f7f5fd] p-4">
                   <p className="text-xs text-slate-500">{s.l}</p>
                   <p className="mt-1 text-xl font-extrabold text-slate-900">
                     {s.v}
@@ -799,7 +799,7 @@ export default function Dashboard() {
               ))}
             </div>
 
-            <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3.5 text-sm text-amber-900">
+            <div className="dashboard-card mt-4 rounded-2xl bg-amber-50 px-4 py-3.5 text-sm text-amber-900">
               Hisar city brings 26% of your customers. 170 villages have no
               customers yet.
             </div>
@@ -898,8 +898,8 @@ export default function Dashboard() {
       </section>
 
       {/* Needs attention + WhatsApp */}
-      <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.65fr_0.9fr]">
-        <section className="rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
+      <div className="dashboard-stagger mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.65fr_0.9fr]">
+        <section className="dashboard-card rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-lg font-extrabold text-slate-900">
@@ -920,7 +920,7 @@ export default function Dashboard() {
             {attention.map((a) => (
               <div
                 key={a.id}
-                className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 rounded-2xl px-2 py-3 transition hover:bg-[#f5f3fb] sm:flex sm:gap-4 sm:px-3 sm:py-3.5"
+                className="dashboard-list-item grid grid-cols-[2.5rem_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 rounded-2xl px-2 py-3 transition hover:bg-[#f5f3fb] sm:flex sm:gap-4 sm:px-3 sm:py-3.5"
               >
                 <span className="font-mono text-[11px] font-bold text-slate-800 sm:w-14 sm:text-sm">
                   {a.id}
@@ -947,7 +947,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
+        <section className="dashboard-card rounded-[24px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
               <MessageCircle size={22} />
@@ -961,9 +961,9 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          <div className="mt-5 space-y-4">
+          <div className="dashboard-stagger mt-5 space-y-4">
             {whatsapp.map((w) => (
-              <div key={w.label}>
+              <div key={w.label} className="dashboard-list-item">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-700">{w.label}</span>
                   <b className={w.red ? "text-red-700" : "text-slate-900"}>

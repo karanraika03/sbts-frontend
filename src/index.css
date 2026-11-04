@@ -15,3 +15,99 @@ button { cursor: pointer; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #d8d3e8; border-radius: 20px; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes dashboard-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dashboard-motion .dashboard-card,
+.dashboard-motion .dashboard-list-item {
+  animation: dashboard-card-enter 520ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.dashboard-motion .dashboard-card {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.dashboard-motion .dashboard-card:hover {
+  transform: translateY(-2px);
+}
+
+.dashboard-motion .dashboard-stagger > .dashboard-card:nth-child(2),
+.dashboard-motion .dashboard-stagger > .dashboard-list-item:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.dashboard-motion .dashboard-stagger > .dashboard-card:nth-child(3),
+.dashboard-motion .dashboard-stagger > .dashboard-list-item:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.dashboard-motion .dashboard-stagger > .dashboard-card:nth-child(4),
+.dashboard-motion .dashboard-stagger > .dashboard-list-item:nth-child(4) {
+  animation-delay: 180ms;
+}
+
+.dashboard-motion .dashboard-stagger > .dashboard-card:nth-child(5),
+.dashboard-motion .dashboard-stagger > .dashboard-list-item:nth-child(5) {
+  animation-delay: 240ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-motion .dashboard-card,
+  .dashboard-motion .dashboard-list-item {
+    animation: none;
+    transition: none;
+  }
+}
+
+@keyframes login-orb-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-12px, 16px, 0) scale(1.035);
+  }
+}
+
+@keyframes login-orb-drift-reverse {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(14px, -12px, 0) scale(1.04);
+  }
+}
+
+.login-orb {
+  will-change: transform;
+}
+
+.login-orb-slow {
+  animation: login-orb-drift 12s ease-in-out infinite;
+}
+
+.login-orb-reverse {
+  animation: login-orb-drift-reverse 15s ease-in-out infinite;
+}
+
+.login-orb-gentle {
+  animation: login-orb-drift 9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-orb {
+    animation: none;
+  }
+}
