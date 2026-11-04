@@ -32,14 +32,17 @@ button { cursor: pointer; }
   animation: dashboard-card-enter 520ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
 }
 
-.dashboard-motion .dashboard-card {
+.dashboard-motion .dashboard-stat-card {
   transition:
     transform 180ms ease,
     box-shadow 180ms ease;
 }
 
-.dashboard-motion .dashboard-card:hover {
-  transform: translateY(-2px);
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .dashboard-motion .dashboard-stat-card:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 14px 28px rgba(91, 53, 214, 0.12);
+  }
 }
 
 .dashboard-motion .dashboard-stagger > .dashboard-card:nth-child(2),
@@ -109,6 +112,60 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .login-orb {
     animation: none;
+  }
+}
+
+@keyframes login-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.login-enter,
+.login-form-enter,
+.login-feature {
+  animation: login-enter 600ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.login-enter-brand {
+  animation-delay: 80ms;
+}
+
+.login-enter-copy {
+  animation-delay: 180ms;
+}
+
+.login-enter-footer {
+  animation-delay: 480ms;
+}
+
+.login-enter-mobile-logo {
+  animation-delay: 80ms;
+}
+
+.login-form-enter {
+  animation-delay: 140ms;
+}
+
+.login-feature {
+  transition: transform 180ms ease;
+}
+
+.login-feature:hover {
+  transform: translateX(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-enter,
+  .login-form-enter,
+  .login-feature {
+    animation: none;
+    transition: none;
   }
 }
 

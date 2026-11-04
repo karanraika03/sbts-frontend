@@ -68,7 +68,7 @@ export default function Login() {
         <div className="login-orb login-orb-reverse pointer-events-none absolute -bottom-28 -left-16 h-72 w-72 rounded-full bg-white/10" />
         <div className="login-orb login-orb-gentle pointer-events-none absolute bottom-40 right-10 h-32 w-32 rounded-full bg-white/10" />
 
-        <div className="relative flex items-center gap-3">
+        <div className="login-enter login-enter-brand relative flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-sm font-bold text-violet-700">
             SB
           </div>
@@ -80,7 +80,7 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="relative">
+        <div className="login-enter login-enter-copy relative">
           <h1 className="text-4xl font-bold leading-tight tracking-tight">
             Your repair shop,
             <br />
@@ -90,10 +90,11 @@ export default function Login() {
             Jobs, customers, parts, and WhatsApp updates—all in one dashboard.
           </p>
           <div className="mt-8 space-y-4">
-            {features.map(({ icon: Icon, text }) => (
+            {features.map(({ icon: Icon, text }, index) => (
               <div
                 key={text}
-                className="flex items-center gap-3 text-sm text-violet-50"
+                style={{ animationDelay: `${260 + index * 100}ms` }}
+                className="login-feature flex items-center gap-3 text-sm text-violet-50"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
                   <Icon size={18} />
@@ -104,7 +105,7 @@ export default function Login() {
           </div>
         </div>
 
-        <p className="relative text-xs text-violet-200">
+        <p className="login-enter login-enter-footer relative text-xs text-violet-200">
           © {new Date().getFullYear()} Shree Bhanu Technical Solutions, Hisar
         </p>
       </div>
@@ -113,7 +114,7 @@ export default function Login() {
       <div className="flex flex-1 items-center justify-center p-5 sm:p-10">
         <div className="w-full max-w-[420px]">
           {/* Mobile logo */}
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
+          <div className="login-enter login-enter-mobile-logo mb-8 flex items-center gap-3 lg:hidden">
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">
               SB
             </div>
@@ -125,7 +126,7 @@ export default function Login() {
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-violet-100/80 bg-white p-6 shadow-xl shadow-violet-100/60 sm:p-8">
+          <div className="login-form-enter rounded-[28px] border border-violet-100/80 bg-white p-6 shadow-xl shadow-violet-100/60 sm:p-8">
             <p className="text-[10px] font-bold uppercase tracking-[1.5px] text-violet-500">
               WELCOME BACK
             </p>
@@ -224,7 +225,7 @@ export default function Login() {
             </form>
           </div>
 
-          <p className="mt-6 text-center text-xs text-slate-400">
+          <p className="login-enter login-enter-footer mt-6 text-center text-xs text-slate-400">
             Trouble logging in? Contact your shop administrator.
           </p>
         </div>
