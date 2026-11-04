@@ -11,6 +11,9 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  Eye,
+  Pencil,
+  X,
 } from "lucide-react";
 import { getCustomerList } from "../../services/CustomerService";
 
@@ -74,6 +77,11 @@ const normalizeCustomer = (item, index) => ({
     item.whatsappMobileNo ??
     item.whatsAppNumber ??
     "",
+  email: item.email ?? item.Email ?? "",
+  gender:
+    item.genderName ?? item.GenderName ?? item.gender ?? item.Gender ?? "",
+  address: item.address ?? item.Address ?? "",
+  landMark: item.landMark ?? item.LandMark ?? "",
   isActive: item.isActive ?? item.IsActive ?? null,
   jobs: item.jobs ?? item.Jobs ?? item.jobCount ?? item.JobCount ?? null,
   joined:
@@ -108,19 +116,23 @@ function CustomerIdentity({ customer }) {
     .join("")
     .toUpperCase();
 
+  const hasCode = customer.code && customer.code !== "—";
+
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[11px] font-bold text-violet-700">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-100 to-violet-200 text-[11px] font-bold text-violet-700 ring-2 ring-white">
         {initials || "C"}
       </span>
 
       <span className="min-w-0">
-        <span className="block truncate text-sm font-bold text-slate-800">
-          {customer.name}
+        <span className="block truncate text-sm font-semibold capitalize text-slate-800">
+          {customer.name.toLowerCase()}
         </span>
-        <span className="mt-0.5 block truncate text-[11px] text-slate-400">
-          {customer.code}
-        </span>
+        {hasCode && (
+          <span className="mt-0.5 block truncate text-[11px] text-slate-400">
+            {customer.code}
+          </span>
+        )}
       </span>
     </div>
   );
@@ -131,7 +143,7 @@ function CustomerStatus({ isActive }) {
 
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold ${
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
         active
           ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-100"
           : "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200"
@@ -147,20 +159,144 @@ function CustomerStatus({ isActive }) {
   );
 }
 
-function NewJobButton({ onClick, compact = false, className = "" }) {
+/* Compact icon buttons (table) */
+function IconActions({ onView, onEdit }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-full font-bold text-violet-700 transition duration-200 hover:scale-[1.03] hover:bg-violet-600 hover:text-white active:scale-95 ${
-        compact
-          ? "border border-violet-200 px-3.5 py-2 text-xs"
-          : "bg-violet-600 px-5 py-3 text-sm text-white shadow-lg shadow-violet-200 hover:bg-violet-700"
-      } ${className}`}
+    <div className="flex items-center justify-end gap-1.5">
+      <button
+        type="button"
+        onClick={onView}
+        title="View details"
+        aria-label="View details"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-inset ring-violet-100 transition duration-200 hover:bg-violet-600 hover:text-white hover:shadow-md hover:shadow-violet-200 active:scale-95"
+      >
+        <Eye size={16} strokeWidth={1.8} />
+      </button>
+      <button
+        type="button"
+        onClick={onEdit}
+        title="Edit customer"
+        aria-label="Edit customer"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-200 transition duration-200 hover:bg-violet-600 hover:text-white hover:ring-violet-600 hover:shadow-md hover:shadow-violet-200 active:scale-95"
+      >
+        <Pencil size={16} strokeWidth={1.8} />
+      </button>
+    </div>
+  );
+}
+
+/* Labeled buttons (mobile cards) */
+function CardActions({ onView, onEdit }) {
+  return (
+    <div className="flex w-full items-center gap-2">
+      <button
+        type="button"
+        onClick={onView}
+        className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-violet-50 text-xs font-semibold leading-none text-violet-700 ring-1 ring-inset ring-violet-100 transition hover:bg-violet-100 active:scale-95"
+      >
+        <Eye size={15} strokeWidth={1.8} />
+        View
+      </button>
+      <button
+        type="button"
+        onClick={onEdit}
+        className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-violet-600 text-xs font-semibold leading-none text-white transition hover:bg-violet-700 active:scale-95"
+      >
+        <Pencil size={15} strokeWidth={1.8} />
+        Edit
+      </button>
+    </div>
+  );
+}
+
+function CustomerDetailsModal({ customer, onClose, onEdit }) {
+  if (!customer) return null;
+
+  const details = [
+    ["Phone", customer.phone],
+    ["WhatsApp", customer.whatsAppMobileNNo],
+    ["Email", customer.email],
+    ["Gender", customer.gender],
+    ["Address", customer.address],
+    ["Landmark", customer.landMark],
+    ["Village", customer.cityName],
+    ["Last visit", formatVisitDate(customer.joined)],
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
     >
-      <Plus size={compact ? 15 : 17} />
-      New job
-    </button>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="customer-details-title"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
+      >
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2
+              id="customer-details-title"
+              className="truncate text-lg font-bold text-slate-900"
+            >
+              {customer.name}
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Customer details
+              {customer.code && customer.code !== "—"
+                ? ` · ${customer.code}`
+                : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close customer details"
+            className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {details.map(([label, value]) => (
+            <div key={label} className="min-w-0 rounded-xl bg-violet-50/70 p-3">
+              <p className="text-[11px] font-bold text-slate-500">{label}</p>
+              <p className="mt-1 break-words text-sm text-slate-800">
+                {value || "—"}
+              </p>
+            </div>
+          ))}
+          <div className="rounded-xl bg-violet-50/70 p-3">
+            <p className="text-[11px] font-bold text-slate-500">Status</p>
+            <div className="mt-1">
+              <CustomerStatus isActive={customer.isActive} />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-violet-700"
+          >
+            <Pencil size={14} strokeWidth={1.8} />
+            Edit customer
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -174,6 +310,7 @@ export default function CustomerList() {
   const [totalRecords, setTotalRecords] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [viewingCustomer, setViewingCustomer] = useState(null);
 
   const fetchCustomers = async (
     searchKey = search.trim(),
@@ -242,7 +379,10 @@ export default function CustomerList() {
     return () => clearTimeout(timer);
   }, [search, pageNumber]);
 
-  const startNewJob = () => navigate("/jobs-new");
+  const editCustomer = (customer) => {
+    setViewingCustomer(null);
+    navigate(`/customers/${customer.id}/edit`);
+  };
 
   const filtered = useMemo(() => customers, [customers]);
 
@@ -342,60 +482,69 @@ export default function CustomerList() {
         ) : (
           <>
             {/* Desktop table (lg and up) */}
-            <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[800px] text-left">
-                <thead className="border-b border-violet-100 text-[11px] font-bold uppercase text-slate-400">
-                  <tr>
-                    {[
-                      "Customer",
-                      "Phone",
-                      "Village",
-                      "Status",
-                      "Last visit",
-                      "",
-                    ].map((heading) => (
-                      <th key={heading || "action"} className="px-5 py-4">
-                        {heading}
-                      </th>
-                    ))}
+            <div className="hidden max-h-[65vh] overflow-auto overscroll-contain lg:block">
+              <table className="w-full min-w-[820px] table-fixed text-left">
+                <colgroup>
+                  <col className="w-[28%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[12%]" />
+                </colgroup>
+
+                <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur">
+                  <tr className="border-b border-violet-100 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    <th className="px-5 py-3.5">Customer</th>
+                    <th className="px-5 py-3.5">Phone</th>
+                    <th className="px-5 py-3.5">Village</th>
+                    <th className="px-5 py-3.5">Status</th>
+                    <th className="px-5 py-3.5">Last visit</th>
+                    <th className="px-5 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-violet-100">
+                <tbody className="divide-y divide-violet-50">
                   {filtered.map((customer, index) => (
                     <tr
                       key={customer.id}
                       style={{
                         animationDelay: `${Math.min(index, 8) * 45}ms`,
                       }}
-                      className="customer-row transition-colors hover:bg-violet-50/40"
+                      className="customer-row transition-colors hover:bg-violet-50/50"
                     >
-                      <td className="max-w-[260px] px-5 py-3.5">
+                      <td className="px-5 py-3">
                         <CustomerIdentity customer={customer} />
                       </td>
 
-                      <td className="whitespace-nowrap px-5 py-3.5 text-sm text-slate-700">
+                      <td className="whitespace-nowrap px-5 py-3 text-sm font-medium tabular-nums text-slate-700">
                         {customer.phone}
                       </td>
 
-                      <td className="max-w-[180px] truncate px-5 py-3.5 text-sm text-slate-800">
-                        {customer.cityName}
+                      <td className="px-5 py-3">
+                        <span className="flex min-w-0 items-center gap-1.5 text-sm text-slate-700">
+                          <MapPin
+                            size={14}
+                            strokeWidth={1.8}
+                            className="shrink-0 text-violet-400"
+                          />
+                          <span className="truncate">{customer.cityName}</span>
+                        </span>
                       </td>
 
-                      <td className="px-5 py-3.5">
+                      <td className="px-5 py-3">
                         <CustomerStatus isActive={customer.isActive} />
                       </td>
 
-                      <td className="whitespace-nowrap px-5 py-3.5 text-sm text-slate-600">
+                      <td className="whitespace-nowrap px-5 py-3 text-sm text-slate-500">
                         {formatVisitDate(customer.joined)}
                       </td>
 
-                      {/* <td className="px-5 py-3.5 text-sm text-slate-400">
-                        {customer.whatsAppMobileNNo || "—"}
-                      </td> */}
-
-                      <td className="px-5 py-3.5 text-right">
-                        <NewJobButton compact onClick={startNewJob} />
+                      <td className="px-5 py-3">
+                        <IconActions
+                          onView={() => setViewingCustomer(customer)}
+                          onEdit={() => editCustomer(customer)}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -420,18 +569,27 @@ export default function CustomerList() {
 
                   <div className="grid grid-cols-1 gap-2 text-xs min-[400px]:grid-cols-2">
                     <span className="flex min-w-0 items-center gap-1.5 text-slate-600">
-                      <Phone size={13} className="shrink-0 text-violet-500" />
+                      <Phone
+                        size={13}
+                        strokeWidth={1.8}
+                        className="shrink-0 text-violet-500"
+                      />
                       <span className="truncate">{customer.phone}</span>
                     </span>
 
                     <span className="flex min-w-0 items-center gap-1.5 text-slate-600">
-                      <MapPin size={13} className="shrink-0 text-violet-500" />
+                      <MapPin
+                        size={13}
+                        strokeWidth={1.8}
+                        className="shrink-0 text-violet-500"
+                      />
                       <span className="truncate">{customer.cityName}</span>
                     </span>
 
                     <span className="flex min-w-0 items-center gap-1.5 text-slate-600">
                       <MessageCircle
                         size={13}
+                        strokeWidth={1.8}
                         className="shrink-0 text-violet-500"
                       />
                       <span className="truncate">
@@ -442,6 +600,7 @@ export default function CustomerList() {
                     <span className="flex min-w-0 items-center gap-1.5 text-slate-600">
                       <CalendarDays
                         size={13}
+                        strokeWidth={1.8}
                         className="shrink-0 text-violet-500"
                       />
                       <span className="truncate">
@@ -450,10 +609,9 @@ export default function CustomerList() {
                     </span>
                   </div>
 
-                  <NewJobButton
-                    compact
-                    onClick={startNewJob}
-                    className="w-full"
+                  <CardActions
+                    onView={() => setViewingCustomer(customer)}
+                    onEdit={() => editCustomer(customer)}
                   />
                 </article>
               ))}
@@ -507,6 +665,11 @@ export default function CustomerList() {
           </>
         )}
       </section>
+      <CustomerDetailsModal
+        customer={viewingCustomer}
+        onClose={() => setViewingCustomer(null)}
+        onEdit={() => editCustomer(viewingCustomer)}
+      />
     </div>
   );
 }

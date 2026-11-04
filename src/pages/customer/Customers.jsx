@@ -240,11 +240,15 @@ export default function Customer() {
           setForm((prev) => ({
             ...prev,
             name: customer.name || "",
+            genderId: String(customer.genderId ?? customer.GenderId ?? ""),
             email: customer.email || "",
             mobileNo: customer.mobileNo || "",
             whatsAppMobileNo: customer.whatsAppMobileNNo || "",
             address: customer.address || "",
             landMark: customer.landMark || "",
+            stateId: String(customer.stateId ?? customer.StateId ?? ""),
+            districtId: String(customer.districtId ?? customer.DistrictId ?? ""),
+            cityId: String(customer.cityId ?? customer.CityId ?? ""),
           }));
 
           // Existing profile image preview ke liye
@@ -345,10 +349,12 @@ export default function Customer() {
 
         <div className="min-w-0">
           <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl lg:text-[30px]">
-            Add Customer
+            {customerId ? "Edit Customer" : "Add Customer"}
           </h1>
           <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-            Enter customer details to register a new customer.
+            {customerId
+              ? "Update the registered customer details."
+              : "Enter customer details to register a new customer."}
           </p>
         </div>
       </header>
@@ -593,7 +599,13 @@ export default function Customer() {
             className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting && <Loader2 size={16} className="animate-spin" />}
-            {submitting ? "Saving..." : "Save Customer"}
+            {submitting
+              ? customerId
+                ? "Updating..."
+                : "Saving..."
+              : customerId
+                ? "Update Customer"
+                : "Save Customer"}
           </button>
         </div>
       </form>

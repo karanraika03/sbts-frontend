@@ -121,7 +121,9 @@ function Shell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const title = pageInfo[location.pathname] || "Dashboard";
+  const title =
+    pageInfo[location.pathname] ||
+    (location.pathname.startsWith("/customers/") ? "Edit Customer" : "Dashboard");
 
   return (
     <div className="min-h-screen bg-[#f7f6fc]">
@@ -135,6 +137,7 @@ function Shell() {
             <Route path="/customers" element={<CustomerList />} />
 
             <Route path="/customers/new" element={<Customer />} />
+            <Route path="/customers/:customerId/edit" element={<Customer />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/whatsapp" element={<WhatsApp />} />
             <Route
