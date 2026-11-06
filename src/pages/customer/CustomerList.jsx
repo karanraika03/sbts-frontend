@@ -14,8 +14,15 @@ import {
   Eye,
   Pencil,
   X,
+  Trash2,
 } from "lucide-react";
-import { getCustomerList } from "../../services/CustomerService";
+import {
+  getCustomerList,
+  getCustomerById,
+  deleteCustomer,
+} from "../../services/CustomerService";
+import { useToast } from "../../context/ToastContext";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 const PAGE_SIZE = 10;
 
@@ -70,6 +77,14 @@ const normalizeCustomer = (item, index) => ({
     item.village ??
     item.Village ??
     "—",
+  districtId: item.districtId ?? item.DistrictId ?? "",
+  districtName:
+    item.districtName ??
+    item.DistrictName ??
+    item.district ??
+    item.District ??
+    "",
+  cityId: item.cityId ?? item.CityId ?? "",
   whatsAppMobileNNo:
     item.whatsAppMobileNNo ??
     item.whatsAppMobileNo ??
@@ -82,6 +97,7 @@ const normalizeCustomer = (item, index) => ({
     item.genderName ?? item.GenderName ?? item.gender ?? item.Gender ?? "",
   address: item.address ?? item.Address ?? "",
   landMark: item.landMark ?? item.LandMark ?? "",
+  profilePath: item.profilePath ?? item.ProfilePath ?? "",
   isActive: item.isActive ?? item.IsActive ?? null,
   jobs: item.jobs ?? item.Jobs ?? item.jobCount ?? item.JobCount ?? null,
   joined:
@@ -160,7 +176,7 @@ function CustomerStatus({ isActive }) {
 }
 
 /* Compact icon buttons (table) */
-function IconActions({ onView, onEdit }) {
+function IconActions({ onView, onEdit, onDelete, deleting }) {
   return (
     <div className="flex items-center justify-end gap-1.5">
       <button
@@ -181,12 +197,26 @@ function IconActions({ onView, onEdit }) {
       >
         <Pencil size={16} strokeWidth={1.8} />
       </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={deleting}
+        title="Delete customer"
+        aria-label="Delete customer"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-inset ring-rose-100 transition hover:bg-rose-600 hover:text-white hover:ring-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {deleting ? (
+          <Loader2 size={16} className="animate-spin" />
+        ) : (
+          <Trash2 size={16} strokeWidth={1.8} />
+        )}
+      </button>
     </div>
   );
 }
 
 /* Labeled buttons (mobile cards) */
-function CardActions({ onView, onEdit }) {
+function CardActions({ onView, onEdit, onDelete, deleting }) {
   return (
     <div className="flex w-full items-center gap-2">
       <button
@@ -200,27 +230,88 @@ function CardActions({ onView, onEdit }) {
       <button
         type="button"
         onClick={onEdit}
-        className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-violet-600 text-xs font-semibold leading-none text-white transition hover:bg-violet-700 active:scale-95"
+        disabled={deleting}
+        className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-violet-600 text-xs font-semibold leading-none text-white transition hover:bg-violet-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Pencil size={15} strokeWidth={1.8} />
         Edit
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={deleting}
+        className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-rose-50 text-xs font-semibold leading-none text-rose-700 ring-1 ring-inset ring-rose-100 transition hover:bg-rose-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {deleting ? (
+          <Loader2 size={15} className="animate-spin" />
+        ) : (
+          <Trash2 size={15} strokeWidth={1.8} />
+        )}
+        Delete
       </button>
     </div>
   );
 }
 
 function CustomerDetailsModal({ customer, onClose, onEdit }) {
+  const [detailsCustomer, setDetailsCustomer] = useState(customer);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchCustomerDetails = async () => {
+      if (!customer) return;
+
+      setDetailsCustomer(customer);
+      setDetailsLoading(true);
+      setDetailsError("");
+
+      try {
+        const response = await getCustomerById(customer.id);
+        const rows = getCustomerRows(response);
+        if (response?.success === false || rows.length === 0) {
+          throw new Error(
+            response?.message || "Customer details were not found.",
+          );
+        }
+
+        if (active) {
+          setDetailsCustomer(normalizeCustomer(rows[0], customer.id));
+        }
+      } catch (error) {
+        console.error("Get Customer Details API Error:", error);
+        if (active) {
+          setDetailsError(
+            error.response?.data?.message ||
+              error.response?.data?.title ||
+              error.message ||
+              "Unable to load customer details. Please try again.",
+          );
+        }
+      } finally {
+        if (active) setDetailsLoading(false);
+      }
+    };
+
+    fetchCustomerDetails();
+    return () => {
+      active = false;
+    };
+  }, [customer?.id]);
+
   if (!customer) return null;
 
+  const detail = detailsCustomer || customer;
   const details = [
-    ["Phone", customer.phone],
-    ["WhatsApp", customer.whatsAppMobileNNo],
-    ["Email", customer.email],
-    ["Gender", customer.gender],
-    ["Address", customer.address],
-    ["Landmark", customer.landMark],
-    ["Village", customer.cityName],
-    ["Last visit", formatVisitDate(customer.joined)],
+    ["Phone number", detail.phone],
+    ["Email", detail.email],
+    ["Gender", detail.gender],
+    ["District", detail.districtName],
+    ["City", detail.cityName],
+    ["Status", detail.isActive ? "Active" : "Inactive"],
+    ["Address", detail.address],
   ];
 
   return (
@@ -234,21 +325,19 @@ function CustomerDetailsModal({ customer, onClose, onEdit }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="customer-details-title"
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
+        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-violet-100 bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-7"
       >
-        <div className="mb-5 flex items-start justify-between gap-4">
+        <div className="mb-6 flex items-start justify-between gap-4 border-b border-violet-100 pb-4">
           <div className="min-w-0">
             <h2
               id="customer-details-title"
-              className="truncate text-lg font-bold text-slate-900"
+              className="truncate text-xl font-bold text-slate-900 sm:text-2xl"
             >
-              {customer.name}
+              {detail.name}
             </h2>
             <p className="mt-1 text-xs text-slate-500">
-              Customer details
-              {customer.code && customer.code !== "—"
-                ? ` · ${customer.code}`
-                : ""}
+              Customer information
+              {detail.code && detail.code !== "—" ? ` · ${detail.code}` : ""}
             </p>
           </div>
           <button
@@ -261,35 +350,71 @@ function CustomerDetailsModal({ customer, onClose, onEdit }) {
           </button>
         </div>
 
-        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {details.map(([label, value]) => (
-            <div key={label} className="min-w-0 rounded-xl bg-violet-50/70 p-3">
-              <p className="text-[11px] font-bold text-slate-500">{label}</p>
-              <p className="mt-1 break-words text-sm text-slate-800">
-                {value || "—"}
+        <div className="grid gap-5 sm:grid-cols-[190px_minmax(0,1fr)] sm:gap-6">
+          <div>
+            {detail.profilePath ? (
+              <img
+                src={detail.profilePath}
+                alt={`${detail.name} profile`}
+                className="aspect-[4/5] w-full rounded-2xl bg-violet-50 object-cover ring-1 ring-inset ring-violet-100"
+              />
+            ) : (
+              <div className="flex aspect-[4/5] w-full items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-violet-200 text-4xl font-bold text-violet-700">
+                {detail.name
+                  .split(" ")
+                  .filter(Boolean)
+                  .map((part) => part[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase() || "C"}
+              </div>
+            )}
+            {detailsLoading && (
+              <p
+                className="mt-2 text-center text-xs text-slate-500"
+                role="status"
+              >
+                Loading details...
               </p>
-            </div>
-          ))}
-          <div className="rounded-xl bg-violet-50/70 p-3">
-            <p className="text-[11px] font-bold text-slate-500">Status</p>
-            <div className="mt-1">
-              <CustomerStatus isActive={customer.isActive} />
-            </div>
+            )}
+          </div>
+
+          <div className="grid content-start grid-cols-1 gap-3 sm:grid-cols-2">
+            {details.map(([label, value]) => (
+              <div
+                key={label}
+                className={`min-w-0 rounded-xl border border-violet-100 bg-violet-50/60 p-3.5 ${
+                  label === "Address" ? "sm:col-span-2" : ""
+                }`}
+              >
+                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                  {label}
+                </p>
+                <p className="mt-1.5 break-words text-sm font-medium text-slate-800">
+                  {value || "—"}
+                </p>
+              </div>
+            ))}
+            {detailsError && (
+              <p className="text-xs text-red-600 sm:col-span-2" role="alert">
+                {detailsError}
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="mt-6 flex justify-end gap-2 border-t border-violet-100 pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+            className="rounded-full border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
           >
             Close
           </button>
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-violet-700"
+            className="inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-violet-700"
           >
             <Pencil size={14} strokeWidth={1.8} />
             Edit customer
@@ -302,6 +427,7 @@ function CustomerDetailsModal({ customer, onClose, onEdit }) {
 
 export default function CustomerList() {
   const navigate = useNavigate();
+  const showToast = useToast();
 
   const [search, setSearch] = useState("");
   const [customers, setCustomers] = useState([]);
@@ -311,6 +437,9 @@ export default function CustomerList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [viewingCustomer, setViewingCustomer] = useState(null);
+  const [customerToDelete, setCustomerToDelete] = useState(null);
+  const [deletingCustomerId, setDeletingCustomerId] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
 
   const fetchCustomers = async (
     searchKey = search.trim(),
@@ -382,6 +511,41 @@ export default function CustomerList() {
   const editCustomer = (customer) => {
     setViewingCustomer(null);
     navigate(`/customers/${customer.id}/edit`);
+  };
+
+  const handleDeleteCustomer = (customer) => {
+    setDeleteError("");
+    setCustomerToDelete(customer);
+  };
+
+  const confirmDeleteCustomer = async () => {
+    if (!customerToDelete) return;
+    const customer = customerToDelete;
+    setDeletingCustomerId(customer.id);
+    setDeleteError("");
+
+    try {
+      await deleteCustomer(customer.id);
+      setCustomerToDelete(null);
+      if (viewingCustomer?.id === customer.id) setViewingCustomer(null);
+      showToast("Customer deleted successfully.");
+
+      if (customers.length === 1 && pageNumber > 1) {
+        setPageNumber((page) => page - 1);
+      } else {
+        await fetchCustomers(search.trim(), pageNumber);
+      }
+    } catch (err) {
+      console.error("Delete Customer API Error:", err);
+      setDeleteError(
+        err.response?.data?.message ||
+          err.response?.data?.title ||
+          err.message ||
+          "Unable to delete customer. Please try again.",
+      );
+    } finally {
+      setDeletingCustomerId(null);
+    }
   };
 
   const filtered = useMemo(() => customers, [customers]);
@@ -544,6 +708,8 @@ export default function CustomerList() {
                         <IconActions
                           onView={() => setViewingCustomer(customer)}
                           onEdit={() => editCustomer(customer)}
+                          onDelete={() => handleDeleteCustomer(customer)}
+                          deleting={deletingCustomerId === customer.id}
                         />
                       </td>
                     </tr>
@@ -612,6 +778,8 @@ export default function CustomerList() {
                   <CardActions
                     onView={() => setViewingCustomer(customer)}
                     onEdit={() => editCustomer(customer)}
+                    onDelete={() => handleDeleteCustomer(customer)}
+                    deleting={deletingCustomerId === customer.id}
                   />
                 </article>
               ))}
@@ -669,6 +837,22 @@ export default function CustomerList() {
         customer={viewingCustomer}
         onClose={() => setViewingCustomer(null)}
         onEdit={() => editCustomer(viewingCustomer)}
+      />
+      <ConfirmDialog
+        open={Boolean(customerToDelete)}
+        title="Delete customer?"
+        description="Are you sure you want to delete"
+        itemName={customerToDelete?.name}
+        itemMeta={`ID: ${customerToDelete?.id ?? ""}`}
+        warning="This will permanently remove the customer from your records."
+        confirmText="Delete Customer"
+        loading={deletingCustomerId === customerToDelete?.id}
+        error={deleteError}
+        onCancel={() => {
+          setCustomerToDelete(null);
+          setDeleteError("");
+        }}
+        onConfirm={confirmDeleteCustomer}
       />
     </div>
   );

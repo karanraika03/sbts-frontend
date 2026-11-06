@@ -6,17 +6,16 @@ import {
   updateCustomer,
   getCustomerById,
   getGenders,
-  getStates,
+  getCitiesByDistrict,
+  getDistricts,
 } from "../../services/CustomerService";
 
-const DISTRICT_OPTIONS = [];
-const CITY_OPTIONS = [];
-
 const getDropdownRows = (response, label) => {
-  if (!Array.isArray(response)) {
-    throw new Error(`The ${label} list response must be an array.`);
+  if (Array.isArray(response)) return response;
+  if (response && typeof response === "object" && "id" in response) {
+    return [response];
   }
-  return response;
+  throw new Error(`The ${label} list response must be an array or an option.`);
 };
 
 const normalizeDropdownOption = ({ id, name }) => {
@@ -35,6 +34,7 @@ const initialForm = {
   stateId: "",
   districtId: "",
   cityId: "",
+  isActive: true,
 };
 
 const inputClass =
@@ -73,12 +73,16 @@ export default function Customer() {
   const [genderLoading, setGenderLoading] = useState(true);
   const [genderError, setGenderError] = useState("");
   const [genderRetry, setGenderRetry] = useState(0);
-  const [stateOptions, setStateOptions] = useState([]);
-  const [stateLoading, setStateLoading] = useState(true);
-  const [stateError, setStateError] = useState("");
-  const [stateRetry, setStateRetry] = useState(0);
-  const [sameAsMobile, setSameAsMobile] = useState(false);
+  const [districtOptions, setDistrictOptions] = useState([]);
+  const [districtLoading, setDistrictLoading] = useState(true);
+  const [districtError, setDistrictError] = useState("");
+  const [districtRetry, setDistrictRetry] = useState(0);
+  const [cityOptions, setCityOptions] = useState([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [cityError, setCityError] = useState("");
+  const [cityRetry, setCityRetry] = useState(0);
   const [image, setImage] = useState(null);
+  const [profilePath, setProfilePath] = useState("");
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -126,52 +130,90 @@ export default function Customer() {
   useEffect(() => {
     let active = true;
 
-    const fetchStates = async () => {
-      setStateLoading(true);
-      setStateError("");
+    const fetchDistricts = async () => {
+      setDistrictLoading(true);
+      setDistrictError("");
 
       try {
-        const response = await getStates();
-        const options = getDropdownRows(response, "state")
+        const response = await getDistricts();
+        const options = getDropdownRows(response, "district")
           .map(normalizeDropdownOption)
           .filter(Boolean);
 
-        if (options.length === 0) {
-          throw new Error("No state options are available.");
-        }
-
-        if (active) setStateOptions(options);
+        if (active) setDistrictOptions(options);
       } catch (err) {
-        console.error("Get States API Error:", err);
+        console.error("Get Districts API Error:", err);
         if (active) {
-          setStateOptions([]);
-          setStateError(
+          setDistrictOptions([]);
+          setDistrictError(
             err.response?.data?.message ||
               err.response?.data?.title ||
               err.message ||
-              "Unable to load states. Please try again.",
+              "Unable to load districts. Please try again.",
           );
         }
       } finally {
-        if (active) setStateLoading(false);
+        if (active) setDistrictLoading(false);
       }
     };
 
-    fetchStates();
+    fetchDistricts();
     return () => {
       active = false;
     };
-  }, [stateRetry]);
+  }, [districtRetry]);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchCities = async () => {
+      setCityOptions([]);
+      setCityError("");
+
+      if (!form.districtId) {
+        setCityLoading(false);
+        return;
+      }
+
+      setCityLoading(true);
+      try {
+        const response = await getCitiesByDistrict(form.districtId);
+        const options = getDropdownRows(response, "city")
+          .map(normalizeDropdownOption)
+          .filter(Boolean);
+
+        if (active) setCityOptions(options);
+      } catch (err) {
+        console.error("Get Cities By District API Error:", err);
+        if (active) {
+          setCityOptions([]);
+          setCityError(
+            err.response?.data?.message ||
+              err.response?.data?.title ||
+              err.message ||
+              "Unable to load cities. Please try again.",
+          );
+        }
+      } finally {
+        if (active) setCityLoading(false);
+      }
+    };
+
+    fetchCities();
+    return () => {
+      active = false;
+    };
+  }, [form.districtId, cityRetry]);
 
   const imagePreview = useMemo(
-    () => (image ? URL.createObjectURL(image) : ""),
-    [image],
+    () => (image ? URL.createObjectURL(image) : profilePath),
+    [image, profilePath],
   );
 
   const setValue = (key, value) => {
     setForm((prev) => {
       const next = { ...prev, [key]: value };
-      if (key === "mobileNo" && sameAsMobile) next.whatsAppMobileNo = value;
+      if (key === "whatsAppMobileNo") next.mobileNo = value;
       if (key === "stateId") {
         next.districtId = "";
         next.cityId = "";
@@ -186,13 +228,6 @@ export default function Customer() {
 
   const handleDigits = (key) => (event) =>
     setValue(key, event.target.value.replace(/\D/g, "").slice(0, 10));
-
-  const handleSameAsMobile = (event) => {
-    const checked = event.target.checked;
-    setSameAsMobile(checked);
-    if (checked)
-      setForm((prev) => ({ ...prev, whatsAppMobileNo: prev.mobileNo }));
-  };
 
   const handleImage = (event) => {
     const file = event.target.files?.[0];
@@ -226,6 +261,8 @@ export default function Customer() {
   };
 
   useEffect(() => {
+    let active = true;
+
     const fetchCustomer = async () => {
       if (!customerId) return;
 
@@ -234,38 +271,64 @@ export default function Customer() {
 
         const response = await getCustomerById(customerId);
 
-        if (response?.success && response?.data?.length > 0) {
-          const customer = response.data[0];
+        const customerRows = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.data?.data)
+            ? response.data.data
+            : [];
+        const customer = customerRows[0];
 
-          setForm((prev) => ({
-            ...prev,
-            name: customer.name || "",
-            genderId: String(customer.genderId ?? customer.GenderId ?? ""),
-            email: customer.email || "",
-            mobileNo: customer.mobileNo || "",
-            whatsAppMobileNo: customer.whatsAppMobileNNo || "",
-            address: customer.address || "",
-            landMark: customer.landMark || "",
-            stateId: String(customer.stateId ?? customer.StateId ?? ""),
-            districtId: String(customer.districtId ?? customer.DistrictId ?? ""),
-            cityId: String(customer.cityId ?? customer.CityId ?? ""),
-          }));
-
-          // Existing profile image preview ke liye
-          // Agar tumhare form mein image preview state hai:
-          // setImagePreview(customer.profilePath || "");
+        if (response?.success === false || !customer) {
+          throw new Error(
+            response?.message || "Customer details were not found.",
+          );
         }
+
+        if (!active) return;
+
+        setForm((prev) => ({
+          ...prev,
+          name: customer.name ?? customer.Name ?? "",
+          genderId: String(customer.genderId ?? customer.GenderId ?? ""),
+          email: customer.email ?? customer.Email ?? "",
+          mobileNo: customer.mobileNo ?? customer.MobileNo ?? "",
+          whatsAppMobileNo:
+            customer.whatsAppMobileNNo ??
+            customer.whatsAppMobileNo ??
+            customer.WhatsAppMobileNo ??
+            "",
+          address: customer.address ?? customer.Address ?? "",
+          landMark: customer.landMark ?? customer.LandMark ?? "",
+          stateId: String(customer.stateId ?? customer.StateId ?? ""),
+          districtId: String(
+            customer.districtId ?? customer.DistrictId ?? "",
+          ),
+          cityId: String(customer.cityId ?? customer.CityId ?? ""),
+          isActive:
+            (customer.isActive ?? customer.IsActive) === true ||
+            (customer.isActive ?? customer.IsActive) === 1 ||
+            (customer.isActive ?? customer.IsActive) === "1",
+        }));
+        setProfilePath(customer.profilePath ?? customer.ProfilePath ?? "");
       } catch (err) {
         console.error("Get Customer API Error:", err);
-        setApiError(
-          err.response?.data?.message || "Unable to fetch customer details.",
-        );
+        if (active) {
+          setApiError(
+            err.response?.data?.message ||
+              err.response?.data?.title ||
+              err.message ||
+              "Unable to fetch customer details.",
+          );
+        }
       } finally {
-        setSubmitting(false);
+        if (active) setSubmitting(false);
       }
     };
 
     fetchCustomer();
+    return () => {
+      active = false;
+    };
   }, [customerId]);
 
   const handleSubmit = async (event) => {
@@ -292,7 +355,7 @@ export default function Customer() {
       payload.append("LandMark", form.landMark.trim());
       payload.append("GenderId", form.genderId);
       payload.append("CityId", form.cityId || 0);
-      payload.append("IsActive", 1);
+      payload.append("IsActive", form.isActive ? 1 : 0);
 
       if (image) {
         payload.append("ImagePath", image);
@@ -319,8 +382,8 @@ export default function Customer() {
   };
   const handleReset = () => {
     setForm(initialForm);
-    setSameAsMobile(false);
     setImage(null);
+    setProfilePath("");
     setErrors({});
     setApiError("");
   };
@@ -458,39 +521,28 @@ export default function Customer() {
                 />
               </Field>
 
-              <Field label="Mobile number" required error={errors.mobileNo}>
+              <Field label="WhatsApp number" required error={errors.whatsAppMobileNo}>
                 <input
                   type="tel"
                   inputMode="numeric"
-                  value={form.mobileNo}
-                  onChange={handleDigits("mobileNo")}
-                  placeholder="10 digit mobile number"
+                  value={form.whatsAppMobileNo}
+                  onChange={handleDigits("whatsAppMobileNo")}
+                  placeholder="10 digit WhatsApp number"
                   className={inputClass}
                 />
               </Field>
 
               <div className="md:col-span-2">
-                <Field label="WhatsApp number" error={errors.whatsAppMobileNo}>
+                <Field label="Mobile number" required error={errors.mobileNo}>
                   <input
                     type="tel"
                     inputMode="numeric"
-                    value={form.whatsAppMobileNo}
-                    onChange={handleDigits("whatsAppMobileNo")}
-                    disabled={sameAsMobile}
-                    placeholder="10 digit WhatsApp number"
-                    className={`${inputClass} disabled:bg-slate-50 disabled:text-slate-500`}
+                    value={form.mobileNo}
+                    readOnly
+                    placeholder="10 digit mobile number"
+                    className={`${inputClass} read-only:cursor-not-allowed read-only:bg-slate-50 read-only:text-slate-500`}
                   />
                 </Field>
-
-                <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={sameAsMobile}
-                    onChange={handleSameAsMobile}
-                    className="h-4 w-4 rounded border-violet-300 accent-violet-600"
-                  />
-                  Same as mobile number
-                </label>
               </div>
             </div>
           </div>
@@ -528,7 +580,7 @@ export default function Customer() {
               />
             </Field>
 
-            <Field label="State">
+            {/* <Field label="State">
               <select
                 value={form.stateId}
                 onChange={handleChange("stateId")}
@@ -553,27 +605,97 @@ export default function Customer() {
                   </button>
                 </span>
               )}
-            </Field>
+            </Field> */}
 
             <Field label="District">
               <select
                 value={form.districtId}
                 onChange={handleChange("districtId")}
+                disabled={districtLoading || Boolean(districtError)}
                 className={inputClass}
               >
-                {renderOptions(DISTRICT_OPTIONS, "Select district")}
+                {renderOptions(
+                  districtOptions,
+                  districtLoading ? "Loading districts..." : "Select district",
+                )}
               </select>
+              {districtError && (
+                <span className="mt-1 flex items-center justify-between gap-2 text-[11px] text-red-500">
+                  <span>{districtError}</span>
+                  <button
+                    type="button"
+                    onClick={() => setDistrictRetry((attempt) => attempt + 1)}
+                    className="inline-flex shrink-0 items-center gap-1 font-bold text-violet-600 hover:text-violet-800"
+                  >
+                    <RefreshCw size={12} />
+                    Retry
+                  </button>
+                </span>
+              )}
             </Field>
 
             <Field label="City / Village">
               <select
                 value={form.cityId}
                 onChange={handleChange("cityId")}
+                disabled={
+                  !form.districtId || cityLoading || Boolean(cityError)
+                }
                 className={inputClass}
               >
-                {renderOptions(CITY_OPTIONS, "Select city / village")}
+                {renderOptions(
+                  cityOptions,
+                  cityLoading ? "Loading cities..." : "Select city / village",
+                )}
               </select>
+              {cityError && (
+                <span className="mt-1 flex items-center justify-between gap-2 text-[11px] text-red-500">
+                  <span>{cityError}</span>
+                  <button
+                    type="button"
+                    onClick={() => setCityRetry((attempt) => attempt + 1)}
+                    className="inline-flex shrink-0 items-center gap-1 font-bold text-violet-600 hover:text-violet-800"
+                  >
+                    <RefreshCw size={12} />
+                    Retry
+                  </button>
+                </span>
+              )}
             </Field>
+
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-violet-100 bg-violet-50/50 px-4 py-3 md:col-span-2">
+              <div>
+                <p className="text-xs font-bold text-slate-700">
+                  Customer status
+                </p>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  {form.isActive
+                    ? "Customer is active"
+                    : "Customer is inactive"}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.isActive}
+                aria-label="Customer active status"
+                onClick={() =>
+                  setForm((prev) => ({
+                    ...prev,
+                    isActive: !prev.isActive,
+                  }))
+                }
+                className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-4 focus:ring-violet-100 ${
+                  form.isActive ? "bg-emerald-500" : "bg-slate-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    form.isActive ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </section>
 
