@@ -123,7 +123,9 @@ function Shell() {
   const navigate = useNavigate();
   const title =
     pageInfo[location.pathname] ||
-    (location.pathname.startsWith("/customers/") ? "Edit Customer" : "Dashboard");
+    (location.pathname.startsWith("/customers/")
+      ? "Edit Customer"
+      : "Dashboard");
 
   return (
     <div className="min-h-screen bg-[#f7f6fc]">

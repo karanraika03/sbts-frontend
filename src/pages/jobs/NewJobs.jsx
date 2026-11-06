@@ -1,10 +1,9 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChevronRight,
   ChevronDown,
   Check,
-  MapPin,
   Sparkles,
   Printer,
   AlertCircle,
@@ -13,6 +12,14 @@ import {
   Wrench,
   IndianRupee,
 } from "lucide-react";
+
+import {
+  getCustomerDropdown,
+  getProductTypes,
+  createJob,
+  getJobById,
+} from "../../services/JobService";
+import { useToast } from "../../context/ToastContext";
 
 /* ---------- constants ---------- */
 const NEXT_JOB_NO = 1631;
@@ -24,7 +31,6 @@ const SHOP = {
   phones: ["89010 34555", "99925 34555"],
 };
 
-const DEVICES = ["Laptop", "Desktop", "Printer", "Other"];
 const EXTRAS = ["Charger", "Bag", "Battery", "Mouse", "None"];
 const ISSUES = [
   "Dead",
@@ -35,30 +41,6 @@ const ISSUES = [
   "Slow or hangs",
   "Other",
 ];
-const TECHNICIANS = ["Amit", "Rohit", "Sandeep"];
-const VILLAGES = [
-  "Nyoli Kalan",
-  "Dabra",
-  "Kaimri",
-  "Chikanwas",
-  "Dhiranwas",
-  "Mangali Jhara",
-  "Siswal",
-  "Balsamand",
-  "Mayyar",
-  "Sisai",
-  "Pabra",
-  "Kinala",
-  "Adampur",
-  "Khanda Kheri",
-  "Hansi",
-  "Satrod Khurd",
-  "Barwala",
-  "Narnaund",
-  "Uklana",
-  "Bass",
-];
-
 const MONTHS = [
   "Jan",
   "Feb",
@@ -78,11 +60,6 @@ const fmtDate = (d) =>
   `${pad(d.getDate())}/${MONTHS[d.getMonth()]}/${d.getFullYear()}`;
 const toInputDate = (d) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const fmt12 = (t) => {
-  if (!t) return "";
-  const [h, m] = t.split(":").map(Number);
-  return `${h % 12 || 12}:${pad(m)} ${h >= 12 ? "PM" : "AM"}`;
-};
 const money = (n) => Number(n || 0).toFixed(2);
 
 const inputCls =
@@ -93,16 +70,21 @@ const defaultDelivery = () => {
   d.setDate(d.getDate() + 2);
   return toInputDate(d);
 };
+const toDateInput = (value) => {
+  const dateValue = String(value || "").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateValue) ? dateValue : defaultDelivery();
+};
 
 const initial = {
+  customerId: "",
   mobile: "",
   name: "",
-  village: "",
   whatsappConsent: true,
-  device: "Laptop",
+  device: "",
   brand: "",
   model: "",
-  serial: "",
+  configuration: "",
+  condition: "",
   extras: ["None"],
   issues: [],
   notes: "",
@@ -110,8 +92,6 @@ const initial = {
   advance: "",
   partCost: "",
   date: defaultDelivery(),
-  time: "18:00",
-  technician: TECHNICIANS[0],
   sendWhatsapp: true,
   printLabel: true,
 };
@@ -213,11 +193,280 @@ function Barcode({ seed }) {
 /* ---------- page ---------- */
 export default function NewJobs() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const jobId = searchParams.get("jobId");
+  const isEditingJob = jobId != null;
+  const showToast = useToast();
   const [f, setF] = useState(initial);
+  const [jobNumber, setJobNumber] = useState(NEXT_JOB_NO);
+  const [jobLoading, setJobLoading] = useState(isEditingJob);
+  const [jobLoadError, setJobLoadError] = useState("");
+  const [jobRetry, setJobRetry] = useState(0);
+  const [customers, setCustomers] = useState([]);
+  const [customersLoading, setCustomersLoading] = useState(true);
+  const [customersError, setCustomersError] = useState("");
+  const [customersRetry, setCustomersRetry] = useState(0);
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
+  const [productTypes, setProductTypes] = useState([]);
+  const [productTypesLoading, setProductTypesLoading] = useState(true);
+  const [productTypesError, setProductTypesError] = useState("");
+  const [productTypesRetry, setProductTypesRetry] = useState(0);
   const [errors, setErrors] = useState({});
-  const [vOpen, setVOpen] = useState(false);
-  const [vQuery, setVQuery] = useState("");
+  const [submitError, setSubmitError] = useState("");
   const [saving, setSaving] = useState(false);
+  const customerDropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (!isEditingJob) {
+      setJobLoading(false);
+      setJobLoadError("");
+      setF(initial);
+      setJobNumber(NEXT_JOB_NO);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const fetchJob = async () => {
+      setJobLoading(true);
+      setJobLoadError("");
+
+      try {
+        const response = await getJobById(jobId, { signal: controller.signal });
+        if (response?.success !== true || !response.data) {
+          throw new Error(response?.message || "Unexpected job detail response.");
+        }
+
+        const job = response.data;
+        const technicalProblem = String(job.technicalProblem || "");
+        const issueMatches = ISSUES.filter(
+          (issue) => issue.toLowerCase() === technicalProblem.trim().toLowerCase(),
+        );
+        const extras = String(job.extraItem || "")
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+
+        setF((current) => ({
+          ...current,
+          customerId: String(job.customerId ?? ""),
+          mobile: String(job.mobileNo ?? ""),
+          name: String(job.customer ?? ""),
+          whatsappConsent: Boolean(job.whatsAppNo),
+          device: String(job.productId ?? ""),
+          brand: String(job.productCompany ?? ""),
+          model: String(job.modelDetail ?? ""),
+          configuration: String(job.modelConfi ?? ""),
+          condition: String(job.modelCondition ?? ""),
+          extras: extras.length ? extras : ["None"],
+          issues: issueMatches,
+          notes: technicalProblem,
+          estimate: String(job.totalEstimatedCost ?? ""),
+          advance: String(job.advance ?? ""),
+          partCost: String(
+            job.repairCost ??
+              job.partCost ??
+              job.getJobItems?.[0]?.partCost ??
+              "",
+          ),
+          date: toDateInput(job.dateOfDelivery),
+        }));
+        setJobNumber(job.srNo ?? job.id);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("Get Job Detail API Error:", error.response?.data || error);
+        setJobLoadError(
+          error.response?.data?.message ||
+            error.message ||
+            "Unable to load job details. Please try again.",
+        );
+      } finally {
+        if (!controller.signal.aborted) setJobLoading(false);
+      }
+    };
+
+    fetchJob();
+    return () => controller.abort();
+  }, [isEditingJob, jobId, jobRetry]);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchCustomers = async () => {
+      setCustomersLoading(true);
+      setCustomersError("");
+
+      try {
+        const response = await getCustomerDropdown();
+        const rows = Array.isArray(response)
+          ? response
+          : [
+              response?.data,
+              response?.data?.data,
+              response?.items,
+              response?.records,
+              response?.result,
+              response?.obj,
+            ].find(Array.isArray) ||
+            (response &&
+            typeof response === "object" &&
+            (response.id != null || response.Id != null)
+              ? [response]
+              : null);
+
+        if (!rows) {
+          throw new Error(
+            "Customer list response is not in the expected format.",
+          );
+        }
+
+        const options = rows
+          .map((customer) => ({
+            id:
+              customer.id ??
+              customer.Id ??
+              customer.customerId ??
+              customer.CustomerId,
+            name:
+              customer.name ??
+              customer.Name ??
+              customer.customerName ??
+              customer.CustomerName,
+          }))
+          .filter(
+            (customer) =>
+              customer.id != null &&
+              customer.name != null &&
+              String(customer.name).trim() !== "",
+          );
+
+        if (active) setCustomers(options);
+      } catch (error) {
+        console.error("Get Customer Dropdown API Error:", error);
+        if (active) {
+          setCustomers([]);
+          setCustomersError(
+            error.response?.data?.message ||
+              error.response?.data?.title ||
+              error.message ||
+              "Unable to load customers. Please try again.",
+          );
+        }
+      } finally {
+        if (active) setCustomersLoading(false);
+      }
+    };
+
+    fetchCustomers();
+    return () => {
+      active = false;
+    };
+  }, [customersRetry]);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchProductTypes = async () => {
+      setProductTypesLoading(true);
+      setProductTypesError("");
+
+      try {
+        const response = await getProductTypes();
+        const rows = Array.isArray(response)
+          ? response
+          : [
+              response?.data,
+              response?.data?.data,
+              response?.items,
+              response?.records,
+              response?.result,
+              response?.obj,
+            ].find(Array.isArray) ||
+            (response &&
+            typeof response === "object" &&
+            (response.id != null ||
+              response.Id != null ||
+              response.productTypeId != null)
+              ? [response]
+              : null);
+
+        if (!rows) {
+          throw new Error(
+            "Product type response is not in the expected format.",
+          );
+        }
+
+        const options = rows
+          .map((product) => ({
+            id:
+              product.id ??
+              product.Id ??
+              product.productTypeId ??
+              product.ProductTypeId ??
+              product.productId ??
+              product.ProductId,
+            name:
+              product.name ??
+              product.Name ??
+              product.productTypeName ??
+              product.ProductTypeName ??
+              product.productName ??
+              product.ProductName,
+          }))
+          .filter(
+            (product) =>
+              product.id != null &&
+              product.name != null &&
+              String(product.name).trim() !== "",
+          );
+
+        if (options.length === 0) {
+          throw new Error("No product types are available.");
+        }
+
+        if (active) {
+          setProductTypes(options);
+        }
+      } catch (error) {
+        console.error("Get Product Types API Error:", error);
+        if (active) {
+          setProductTypes([]);
+          setProductTypesError(
+            error.response?.data?.message ||
+              error.response?.data?.title ||
+              error.message ||
+              "Unable to load product types. Please try again.",
+          );
+        }
+      } finally {
+        if (active) setProductTypesLoading(false);
+      }
+    };
+
+    fetchProductTypes();
+    return () => {
+      active = false;
+    };
+  }, [productTypesRetry]);
+
+  useEffect(() => {
+    if (!customerDropdownOpen) return undefined;
+
+    const closeOnOutsideClick = (event) => {
+      if (!customerDropdownRef.current?.contains(event.target)) {
+        setCustomerDropdownOpen(false);
+      }
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setCustomerDropdownOpen(false);
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [customerDropdownOpen]);
 
   const set = (k, v) => {
     setF((p) => ({ ...p, [k]: v }));
@@ -241,22 +490,22 @@ export default function NewJobs() {
   const balance = Math.max(Number(f.estimate || 0) - Number(f.advance || 0), 0);
   const now = new Date();
   const deliveryDate = f.date ? new Date(f.date + "T00:00:00") : null;
-  const deliveryText = deliveryDate
-    ? `${fmtDate(deliveryDate)}, ${fmt12(f.time)}`
-    : "-";
+  const deliveryText = deliveryDate ? fmtDate(deliveryDate) : "-";
   const extraText = f.extras.length
     ? f.extras.join(", ").toUpperCase()
     : "NONE";
   const issueText = f.issues.length ? f.issues.join(", ") : "";
-  const productText = [f.device.toUpperCase(), f.brand || "Brand"].join(" · ");
-
-  const filteredVillages = VILLAGES.filter((v) =>
-    v.toLowerCase().includes(vQuery.toLowerCase()),
+  const selectedProductType = productTypes.find(
+    (product) => String(product.id) === String(f.device),
   );
+  const productText = [
+    selectedProductType?.name?.toUpperCase() || "DEVICE",
+    f.brand || "Brand",
+  ].join(" · ");
 
   const receiptLines = [
     `📄 *Job Receipt - ${SHOP.name}*`,
-    `🔢 Job No: *${NEXT_JOB_NO}*`,
+    `🔢 Job No: *${jobNumber}*`,
     `👤 Customer: ${(f.name || "CUSTOMER NAME").toUpperCase()} (${NEXT_CUSTOMER_CODE})`,
     `📦 Product: ${productText}${f.model ? ` ${f.model}` : ""}`,
     `💬 Issue: ${issueText ? issueText.toUpperCase() : "ISSUE"}`,
@@ -273,11 +522,11 @@ export default function NewJobs() {
       ...initial,
       mobile: "9812345678",
       name: "Rahul Sharma",
-      village: "Dabra",
-      device: "Laptop",
+      device: productTypes[0] ? String(productTypes[0].id) : "",
       brand: "HP",
       model: "15s",
-      serial: "5CD1234XYZ",
+      configuration: "8GB RAM, 256GB SSD",
+      condition: "Screen flickers, scratch on the lid",
       extras: ["Charger"],
       issues: ["No display"],
       notes: "Screen flickers, scratch on the lid.",
@@ -289,22 +538,65 @@ export default function NewJobs() {
   const validate = () => {
     const e = {};
     if (!/^\d{10}$/.test(f.mobile)) e.mobile = "Enter a 10 digit mobile number";
+    if (!f.customerId) e.customerId = "Select a customer";
     if (!f.name.trim()) e.name = "Customer name is required";
+    if (!f.device) e.device = "Select a product type";
+    if (!f.model.trim()) e.model = "Model detail is required";
     if (!f.issues.length) e.issues = "Select at least one issue";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const handleSave = async () => {
+  const handleSave = async (event) => {
+    event?.preventDefault();
+    setSubmitError("");
+
+    if (isEditingJob) {
+      setSubmitError(
+        "Job details loaded. Updating an existing job is not available yet.",
+      );
+      return;
+    }
+
     if (!validate()) {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     setSaving(true);
     try {
-      // TODO: Replace this with the real API call using this payload.
-      // { jobNo: NEXT_JOB_NO, ...f }
-      await new Promise((r) => setTimeout(r, 600));
+      const payload = {
+        srNo: 0,
+        customerId: Number(f.customerId),
+        productId: Number(f.device),
+        modelConfi: f.configuration,
+        modelDetail: f.model,
+        modelCondition: f.condition,
+        modalCompany: f.brand,
+        extraItem: f.extras.join(", "),
+        remark: f.notes,
+        totalEstimatedCost: Number(f.estimate || 0),
+        technicalProblem: f.notes,
+        repairCost: Number(f.partCost || 0),
+        advance: Number(f.advance || 0),
+        balance,
+        status: 0,
+        isActive: 1,
+        dateOfDelivery: f.date,
+        getJobItems: [
+          {
+            srNo: 0,
+            partName: "",
+            partCost: Number(f.partCost || 0),
+          },
+        ],
+      };
+
+      const response = await createJob(payload);
+      if (response?.success === false) {
+        throw new Error(response.message || "Unable to create job.");
+      }
+
+      showToast("Job created successfully.");
 
       if (f.sendWhatsapp && f.whatsappConsent) {
         const text = encodeURIComponent(receiptLines.join("\n"));
@@ -314,6 +606,14 @@ export default function NewJobs() {
         window.print();
       }
       navigate("/jobs");
+    } catch (error) {
+      console.error("Create Job Error:", error.response?.data || error);
+      setSubmitError(
+        error.response?.data?.message ||
+          error.response?.data?.title ||
+          error.message ||
+          "Unable to create job. Please try again.",
+      );
     } finally {
       setSaving(false);
     }
@@ -344,13 +644,15 @@ export default function NewJobs() {
               Jobs
             </button>
             <ChevronRight size={13} />
-            <span className="text-violet-600">New job</span>
+            <span className="text-violet-600">
+              {isEditingJob ? "Edit job" : "New job"}
+            </span>
           </div>
           <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-slate-900 sm:text-[28px]">
-            Register a job
+            {isEditingJob ? `Edit job #${jobNumber}` : "Register a job"}
           </h2>
         </div>
-        <div className="flex items-center gap-3">
+        {!isEditingJob && <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={fillSample}
@@ -359,11 +661,43 @@ export default function NewJobs() {
             <Sparkles size={14} /> Fill sample
           </button>
           <span className="rounded-full border border-violet-100 bg-white px-4 py-2 text-xs text-slate-500">
-            Next job{" "}
-            <b className="font-bold text-violet-700">#{NEXT_JOB_NO}</b>
+            Next job <b className="font-bold text-violet-700">#{NEXT_JOB_NO}</b>
           </span>
-        </div>
+        </div>}
       </div>
+
+      {jobLoading && (
+        <div
+          role="status"
+          className="mb-4 rounded-2xl border border-violet-100 bg-white p-4 text-sm font-medium text-violet-600"
+        >
+          Loading job details...
+        </div>
+      )}
+      {jobLoadError && (
+        <div
+          role="alert"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700"
+        >
+          <span>{jobLoadError}</span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setJobRetry((attempt) => attempt + 1)}
+              className="font-bold text-violet-700 hover:text-violet-900"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/jobs")}
+              className="font-bold text-slate-600 hover:text-slate-900"
+            >
+              Back to jobs
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.5fr_1fr]">
         {/* ---------- FORM ---------- */}
@@ -396,70 +730,118 @@ export default function NewJobs() {
                 )}
               </Field>
               <Field label="Customer name">
-                <input
-                  value={f.name}
-                  onChange={(e) => set("name", e.target.value)}
-                  placeholder="Full name"
-                  className={inputCls}
-                />
+                <div ref={customerDropdownRef} className="relative min-w-0">
+                  <button
+                    type="button"
+                    aria-haspopup="listbox"
+                    aria-expanded={customerDropdownOpen}
+                    disabled={customersLoading || Boolean(customersError)}
+                    onClick={() => setCustomerDropdownOpen((isOpen) => !isOpen)}
+                    className={`${inputCls} flex cursor-pointer items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    <span
+                      className={`min-w-0 truncate ${
+                        f.name ? "text-slate-800" : "text-slate-400"
+                      }`}
+                    >
+                      {customersLoading
+                        ? "Loading customers..."
+                        : f.name || "Select customer"}
+                    </span>
+                    <ChevronDown
+                      size={16}
+                      className={`shrink-0 text-slate-400 transition-transform ${
+                        customerDropdownOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                  {customerDropdownOpen && (
+                    <div
+                      role="listbox"
+                      aria-label="Customers"
+                      className="absolute left-0 right-0 top-full z-30 mt-1 max-h-60 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-900/10"
+                    >
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={!f.customerId}
+                        onClick={() => {
+                          setF((previous) => ({
+                            ...previous,
+                            customerId: "",
+                            name: "",
+                          }));
+                          setCustomerDropdownOpen(false);
+                        }}
+                        title="Select customer"
+                        className="block w-full truncate rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-violet-50"
+                      >
+                        Select customer
+                      </button>
+                      {customers.map((customer) => {
+                        const selected =
+                          String(customer.id) === String(f.customerId);
+                        return (
+                          <button
+                            key={customer.id}
+                            type="button"
+                            role="option"
+                            aria-selected={selected}
+                            onClick={() => {
+                              setF((previous) => ({
+                                ...previous,
+                                customerId: String(customer.id),
+                                name: customer.name,
+                              }));
+                              setCustomerDropdownOpen(false);
+                              if (errors.name || errors.customerId) {
+                                setErrors((previous) => ({
+                                  ...previous,
+                                  name: undefined,
+                                  customerId: undefined,
+                                }));
+                              }
+                            }}
+                            title={customer.name}
+                            className={`block w-full truncate rounded-lg px-3 py-2 text-left text-sm transition hover:bg-violet-50 ${
+                              selected
+                                ? "bg-violet-50 font-semibold text-violet-700"
+                                : "text-slate-700"
+                            }`}
+                          >
+                            {customer.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                {errors.customerId && (
+                  <p className={errCls}>
+                    <AlertCircle size={12} /> {errors.customerId}
+                  </p>
+                )}
                 {errors.name && (
                   <p className={errCls}>
                     <AlertCircle size={12} /> {errors.name}
                   </p>
                 )}
-              </Field>
-            </div>
-
-            <Field label="Village or town" className="mt-3">
-              <div className="relative">
-                <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 transition hover:border-violet-200 focus-within:border-violet-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-violet-100">
-                  <MapPin size={15} className="text-violet-400" />
-                  <input
-                    value={vOpen ? vQuery : f.village}
-                    onFocus={() => {
-                      setVOpen(true);
-                      setVQuery("");
-                    }}
-                    onBlur={() => setTimeout(() => setVOpen(false), 120)}
-                    onChange={(e) => setVQuery(e.target.value)}
-                    placeholder="Search village or town"
-                    className="w-full bg-transparent text-[13px] text-slate-800 outline-none placeholder:text-slate-400"
-                  />
-                  <ChevronDown size={15} className="text-slate-400" />
-                </div>
-                {vOpen && (
-                  <div className="absolute z-20 mt-1.5 max-h-48 w-full overflow-y-auto rounded-xl border border-violet-100 bg-white p-1 shadow-xl shadow-violet-100">
-                    {filteredVillages.map((v) => (
-                      <button
-                        key={v}
-                        type="button"
-                        onMouseDown={() => set("village", v)}
-                        className="block w-full rounded-lg px-3 py-2 text-left text-[13px] text-slate-700 hover:bg-violet-50"
-                      >
-                        {v}
-                      </button>
-                    ))}
-                    {filteredVillages.length === 0 && (
-                      <p className="px-3 py-2.5 text-xs text-slate-400">
-                        No village found
-                      </p>
-                    )}
+                {customersError && (
+                  <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-red-600">
+                    <span>{customersError}</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCustomersRetry((attempt) => attempt + 1)
+                      }
+                      className="shrink-0 font-bold text-violet-600 hover:text-violet-800"
+                    >
+                      Retry
+                    </button>
                   </div>
                 )}
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                <button
-                  type="button"
-                  onClick={() => set("village", "Hisar city")}
-                  className="rounded-full bg-violet-50 px-3 py-1 text-[11px] font-bold text-violet-700 transition hover:bg-violet-100"
-                >
-                  Walk-in from Hisar city
-                </button>
-                <p className="text-[11px] text-slate-400">
-                  Used for the Hisar map. Skip for walk-in customers.
-                </p>
-              </div>
-            </Field>
+              </Field>
+            </div>
 
             <div className="mt-4 rounded-xl bg-emerald-50/60 px-3.5 py-2.5">
               <Check2
@@ -478,39 +860,83 @@ export default function NewJobs() {
             hint="What are we repairing?"
             icon={Laptop}
           >
-            <div className="flex flex-wrap gap-2">
-              {DEVICES.map((d) => (
-                <Chip
-                  key={d}
-                  active={f.device === d}
-                  onClick={() => set("device", d)}
+            <Field label="Product type">
+              <div className="relative">
+                <select
+                  value={f.device}
+                  onChange={(event) => set("device", event.target.value)}
+                  disabled={productTypesLoading || Boolean(productTypesError)}
+                  className={`${inputCls} cursor-pointer appearance-none pr-10 disabled:cursor-not-allowed disabled:opacity-60`}
                 >
-                  {d}
-                </Chip>
-              ))}
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Field label="Brand">
+                  <option value="">
+                    {productTypesLoading
+                      ? "Loading product types..."
+                      : "Select product type"}
+                  </option>
+                  {productTypes.map((product) => (
+                    <option key={product.id} value={String(product.id)}>
+                      {product.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={16}
+                  className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+              </div>
+              {errors.device && (
+                <p className={errCls}>
+                  <AlertCircle size={12} /> {errors.device}
+                </p>
+              )}
+            </Field>
+            {productTypesError && (
+              <div className="mt-2 flex items-center justify-between gap-3 text-xs text-red-600">
+                <span>{productTypesError}</span>
+                <button
+                  type="button"
+                  onClick={() => setProductTypesRetry((attempt) => attempt + 1)}
+                  className="shrink-0 font-bold text-violet-600 hover:text-violet-800"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Field label="Brand name">
                 <input
                   value={f.brand}
                   onChange={(e) => set("brand", e.target.value)}
-                  placeholder="e.g. HP"
+                  placeholder="Enter brand name"
                   className={inputCls}
                 />
               </Field>
-              <Field label="Model">
+              <Field label="Model detail *">
                 <input
                   value={f.model}
                   onChange={(e) => set("model", e.target.value)}
-                  placeholder="e.g. 15s"
+                  placeholder="Enter model detail"
+                  className={inputCls}
+                />
+                {errors.model && (
+                  <p className={errCls}>
+                    <AlertCircle size={12} /> {errors.model}
+                  </p>
+                )}
+              </Field>
+              <Field label="Configuration">
+                <input
+                  value={f.configuration}
+                  onChange={(e) => set("configuration", e.target.value)}
+                  placeholder="Enter configuration"
                   className={inputCls}
                 />
               </Field>
-              <Field label="Serial no. (optional)">
+              <Field label="Condition of product">
                 <input
-                  value={f.serial}
-                  onChange={(e) => set("serial", e.target.value)}
-                  placeholder="Scan or type"
+                  value={f.condition}
+                  onChange={(e) => set("condition", e.target.value)}
+                  placeholder="Enter product condition"
                   className={inputCls}
                 />
               </Field>
@@ -616,39 +1042,14 @@ export default function NewJobs() {
               </b>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Field label="Delivery date">
+            <div className="mt-4 grid grid-cols-1 gap-3">
+              <Field label="Estimate date">
                 <input
                   type="date"
                   value={f.date}
                   onChange={(e) => set("date", e.target.value)}
                   className={inputCls}
                 />
-              </Field>
-              <Field label="Time">
-                <input
-                  type="time"
-                  value={f.time}
-                  onChange={(e) => set("time", e.target.value)}
-                  className={inputCls}
-                />
-              </Field>
-              <Field label="Technician">
-                <div className="relative">
-                  <select
-                    value={f.technician}
-                    onChange={(e) => set("technician", e.target.value)}
-                    className={`${inputCls} cursor-pointer appearance-none pr-9`}
-                  >
-                    {TECHNICIANS.map((t) => (
-                      <option key={t}>{t}</option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={15}
-                    className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                </div>
               </Field>
             </div>
 
@@ -669,6 +1070,14 @@ export default function NewJobs() {
           </Section>
 
           {/* Actions */}
+          {submitError && (
+            <p
+              role="alert"
+              className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600"
+            >
+              {submitError}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-2.5 pb-2">
             <button
               type="button"
@@ -698,9 +1107,7 @@ export default function NewJobs() {
 
           {/* Label */}
           <section className="rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-900">
-              Printed label
-            </h3>
+            <h3 className="text-sm font-bold text-slate-900">Printed label</h3>
             <div
               id="job-label"
               className="mt-3 rounded-xl border-2 border-slate-900 bg-white p-3 text-slate-900"
@@ -718,7 +1125,7 @@ export default function NewJobs() {
               </div>
               <dl className="mt-2.5 space-y-0.5 text-[11px]">
                 {[
-                  ["Job no.", NEXT_JOB_NO, true],
+                  ["Job no.", jobNumber, true],
                   ["Date", fmtDate(now)],
                   ["Customer", f.name || "-"],
                   ["Contact", f.mobile || "-"],
@@ -735,7 +1142,7 @@ export default function NewJobs() {
               <div className="mt-2.5 border-t border-slate-700 pt-2">
                 <div className="flex items-center gap-2.5">
                   <div className="flex-1">
-                    <Barcode seed={NEXT_JOB_NO} />
+                    <Barcode seed={Number(jobNumber) || NEXT_JOB_NO} />
                   </div>
                   <div className="text-right text-[10px] font-semibold leading-tight">
                     {SHOP.phones.map((p) => (
@@ -757,9 +1164,7 @@ export default function NewJobs() {
                 SB
               </div>
               <div>
-                <p className="text-xs font-bold leading-tight">
-                  {SHOP.name}
-                </p>
+                <p className="text-xs font-bold leading-tight">{SHOP.name}</p>
                 <p className="text-[10px] text-emerald-100">Business account</p>
               </div>
             </div>

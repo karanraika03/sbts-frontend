@@ -9,6 +9,7 @@ import {
   getCitiesByDistrict,
   getDistricts,
 } from "../../services/CustomerService";
+import { useToast } from "../../context/ToastContext";
 
 const getDropdownRows = (response, label) => {
   if (Array.isArray(response)) return response;
@@ -67,6 +68,7 @@ function SectionTitle({ title, subtitle }) {
 export default function Customer() {
   const navigate = useNavigate();
   const { customerId } = useParams();
+  const showToast = useToast();
 
   const [form, setForm] = useState(initialForm);
   const [genderOptions, setGenderOptions] = useState([]);
@@ -367,6 +369,11 @@ export default function Customer() {
         await createCustomer(payload);
       }
 
+      showToast(
+        customerId
+          ? "Customer updated successfully."
+          : "Customer created successfully.",
+      );
       navigate("/customers");
     } catch (err) {
       console.error("Customer Save API Error:", err);
