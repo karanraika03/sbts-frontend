@@ -33,7 +33,6 @@ const SHOP = {
   phones: ["89010 34555", "99925 34555"],
 };
 
-const EXTRAS = ["Charger", "Bag", "Battery", "Mouse", "None"];
 const ISSUES = [
   "Dead",
   "No display",
@@ -87,7 +86,7 @@ const initial = {
   model: "",
   configuration: "",
   condition: "",
-  extras: ["None"],
+  extras: "",
   issues: [],
   notes: "",
   estimate: "",
@@ -253,11 +252,6 @@ export default function NewJobs() {
           (issue) =>
             issue.toLowerCase() === technicalProblem.trim().toLowerCase(),
         );
-        const extras = String(job.extraItem || "")
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean);
-
         setF((current) => ({
           ...current,
           customerId: String(job.customerId ?? ""),
@@ -269,7 +263,7 @@ export default function NewJobs() {
           model: String(job.modelDetail ?? ""),
           configuration: String(job.modelConfi ?? ""),
           condition: String(job.modelCondition ?? ""),
-          extras: extras.length ? extras : ["None"],
+          extras: String(job.extraItem ?? ""),
           issues: issueMatches,
           notes: technicalProblem,
           estimate: String(job.totalEstimatedCost ?? ""),
@@ -573,14 +567,6 @@ export default function NewJobs() {
     if (errors[k]) setErrors((p) => ({ ...p, [k]: undefined }));
   };
 
-  const toggleExtra = (x) => {
-    if (x === "None") return set("extras", ["None"]);
-    const base = f.extras.filter((e) => e !== "None");
-    set(
-      "extras",
-      base.includes(x) ? base.filter((e) => e !== x) : [...base, x],
-    );
-  };
   const toggleIssue = (x) =>
     set(
       "issues",
@@ -591,9 +577,7 @@ export default function NewJobs() {
   const now = new Date();
   const deliveryDate = f.date ? new Date(f.date + "T00:00:00") : null;
   const deliveryText = deliveryDate ? fmtDate(deliveryDate) : "-";
-  const extraText = f.extras.length
-    ? f.extras.join(", ").toUpperCase()
-    : "NONE";
+  const extraText = f.extras.trim().toUpperCase() || "NONE";
   const issueText = f.issues.length ? f.issues.join(", ") : "";
   const selectedProductType = productTypes.find(
     (product) => String(product.id) === String(f.device),
@@ -627,7 +611,7 @@ export default function NewJobs() {
       model: "15s",
       configuration: "8GB RAM, 256GB SSD",
       condition: "Screen flickers, scratch on the lid",
-      extras: ["Charger"],
+      extras: "Charger",
       issues: ["No display"],
       notes: "Screen flickers, scratch on the lid.",
       estimate: "1500",
@@ -683,7 +667,7 @@ export default function NewJobs() {
             modelConfi: f.configuration,
             modelDetail: f.model,
             modelCondition: f.condition,
-            extraItem: f.extras.filter((item) => item !== "None").join(", "),
+            extraItem: f.extras.trim(),
             remark: jobRecord?.remark ?? "",
             technicalProblem: f.notes,
             totalEstimatedCost: Number(f.estimate || 0),
@@ -728,7 +712,7 @@ export default function NewJobs() {
             modelDetail: f.model,
             modelCondition: f.condition,
             modalCompany: f.brand,
-            extraItem: f.extras.join(", "),
+            extraItem: f.extras.trim(),
             remark: f.notes,
             totalEstimatedCost: Number(f.estimate || 0),
             technicalProblem: f.notes,
@@ -1137,17 +1121,12 @@ export default function NewJobs() {
               </Field>
             </div>
             <Field label="Extra items received" className="mt-4">
-              <div className="flex flex-wrap gap-2">
-                {EXTRAS.map((x) => (
-                  <Chip
-                    key={x}
-                    active={f.extras.includes(x)}
-                    onClick={() => toggleExtra(x)}
-                  >
-                    {x}
-                  </Chip>
-                ))}
-              </div>
+              <input
+                value={f.extras}
+                onChange={(event) => set("extras", event.target.value)}
+                placeholder="Enter extra items received (e.g. Charger, Bag)"
+                className={inputCls}
+              />
             </Field>
           </Section>
 
