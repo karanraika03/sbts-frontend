@@ -47,3 +47,26 @@ export const getJobById = async (id, options = {}) => {
 
   return response.data;
 };
+
+export const getCustomerByMobile = async (mobile, options = {}) => {
+  const response = await http.get("/api/AllDropdown/getcustomerbymobile", {
+    params: {
+      mobile,
+    },
+    signal: options.signal,
+  });
+
+  return response.data;
+};
+
+export const updateJob = async (payload) => {
+  const response = await http.put("/api/JobRegistration/update", payload);
+
+  return response.data;
+};
+
+export const deleteProduct = async (id) => {
+  const response = await http.delete(`/api/ProductRegistration/delete/${id}`);
+
+  return response.data;
+};

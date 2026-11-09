@@ -18,6 +18,8 @@ import {
   getProductTypes,
   createJob,
   getJobById,
+  getCustomerByMobile,
+  updateJob,
 } from "../../services/JobService";
 import { useToast } from "../../context/ToastContext";
 
@@ -202,11 +204,16 @@ export default function NewJobs() {
   const [jobLoading, setJobLoading] = useState(isEditingJob);
   const [jobLoadError, setJobLoadError] = useState("");
   const [jobRetry, setJobRetry] = useState(0);
+  const [jobRecord, setJobRecord] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [customersLoading, setCustomersLoading] = useState(true);
   const [customersError, setCustomersError] = useState("");
   const [customersRetry, setCustomersRetry] = useState(0);
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
+  const [customerLookup, setCustomerLookup] = useState({
+    loading: false,
+    message: "",
+  });
   const [productTypes, setProductTypes] = useState([]);
   const [productTypesLoading, setProductTypesLoading] = useState(true);
   const [productTypesError, setProductTypesError] = useState("");
@@ -222,6 +229,7 @@ export default function NewJobs() {
       setJobLoadError("");
       setF(initial);
       setJobNumber(NEXT_JOB_NO);
+      setJobRecord(null);
       return undefined;
     }
 
@@ -233,13 +241,17 @@ export default function NewJobs() {
       try {
         const response = await getJobById(jobId, { signal: controller.signal });
         if (response?.success !== true || !response.data) {
-          throw new Error(response?.message || "Unexpected job detail response.");
+          throw new Error(
+            response?.message || "Unexpected job detail response.",
+          );
         }
 
         const job = response.data;
+        setJobRecord(job);
         const technicalProblem = String(job.technicalProblem || "");
         const issueMatches = ISSUES.filter(
-          (issue) => issue.toLowerCase() === technicalProblem.trim().toLowerCase(),
+          (issue) =>
+            issue.toLowerCase() === technicalProblem.trim().toLowerCase(),
         );
         const extras = String(job.extraItem || "")
           .split(",")
@@ -273,7 +285,10 @@ export default function NewJobs() {
         setJobNumber(job.srNo ?? job.id);
       } catch (error) {
         if (controller.signal.aborted) return;
-        console.error("Get Job Detail API Error:", error.response?.data || error);
+        console.error(
+          "Get Job Detail API Error:",
+          error.response?.data || error,
+        );
         setJobLoadError(
           error.response?.data?.message ||
             error.message ||
@@ -287,6 +302,91 @@ export default function NewJobs() {
     fetchJob();
     return () => controller.abort();
   }, [isEditingJob, jobId, jobRetry]);
+
+  useEffect(() => {
+    if (isEditingJob || !/^\d{10}$/.test(f.mobile)) {
+      setCustomerLookup({ loading: false, message: "" });
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const lookupCustomer = async () => {
+      setCustomerLookup({ loading: true, message: "" });
+
+      try {
+        const response = await getCustomerByMobile(f.mobile, {
+          signal: controller.signal,
+        });
+        const rows = Array.isArray(response)
+          ? response
+          : [
+              response?.data,
+              response?.data?.data,
+              response?.items,
+              response?.records,
+              response?.result,
+              response?.obj,
+            ].find(Array.isArray);
+        const customer =
+          rows?.[0] ||
+          response?.data?.data ||
+          response?.data ||
+          response?.customer ||
+          response;
+        const customerId =
+          customer?.id ??
+          customer?.Id ??
+          customer?.customerId ??
+          customer?.CustomerId;
+        const customerName =
+          customer?.name ??
+          customer?.Name ??
+          customer?.customerName ??
+          customer?.CustomerName;
+
+        if (
+          response?.success === false ||
+          customerId == null ||
+          customerName == null ||
+          String(customerName).trim() === ""
+        ) {
+          throw new Error(
+            response?.message || "No customer found for this mobile number.",
+          );
+        }
+
+        if (controller.signal.aborted) return;
+        setF((current) => ({
+          ...current,
+          customerId: String(customerId),
+          name: String(customerName),
+        }));
+        setErrors((current) => ({
+          ...current,
+          customerId: undefined,
+          name: undefined,
+        }));
+        setCustomerLookup({ loading: false, message: "" });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error(
+          "Get Customer By Mobile API Error:",
+          error.response?.data || error,
+        );
+        setCustomerLookup({
+          loading: false,
+          message:
+            error.response?.data?.message ||
+            error.response?.data?.title ||
+            error.message ||
+            "Unable to look up this customer.",
+        });
+      }
+    };
+
+    lookupCustomer();
+    return () => controller.abort();
+  }, [f.mobile, isEditingJob]);
 
   useEffect(() => {
     let active = true;
@@ -540,9 +640,11 @@ export default function NewJobs() {
     if (!/^\d{10}$/.test(f.mobile)) e.mobile = "Enter a 10 digit mobile number";
     if (!f.customerId) e.customerId = "Select a customer";
     if (!f.name.trim()) e.name = "Customer name is required";
-    if (!f.device) e.device = "Select a product type";
+    if (f.device === "") e.device = "Select a product type";
     if (!f.model.trim()) e.model = "Model detail is required";
-    if (!f.issues.length) e.issues = "Select at least one issue";
+    if (!f.issues.length && !(isEditingJob && f.notes.trim())) {
+      e.issues = "Select at least one issue";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -551,9 +653,9 @@ export default function NewJobs() {
     event?.preventDefault();
     setSubmitError("");
 
-    if (isEditingJob) {
+    if (isEditingJob && !jobRecord) {
       setSubmitError(
-        "Job details loaded. Updating an existing job is not available yet.",
+        "Job details are not loaded. Please try loading them again.",
       );
       return;
     }
@@ -564,55 +666,123 @@ export default function NewJobs() {
     }
     setSaving(true);
     try {
-      const payload = {
-        srNo: 0,
-        customerId: Number(f.customerId),
-        productId: Number(f.device),
-        modelConfi: f.configuration,
-        modelDetail: f.model,
-        modelCondition: f.condition,
-        modalCompany: f.brand,
-        extraItem: f.extras.join(", "),
-        remark: f.notes,
-        totalEstimatedCost: Number(f.estimate || 0),
-        technicalProblem: f.notes,
-        repairCost: Number(f.partCost || 0),
-        advance: Number(f.advance || 0),
-        balance,
-        status: 0,
-        isActive: 1,
-        dateOfDelivery: f.date,
-        getJobItems: [
-          {
-            srNo: 0,
-            partName: "",
+      const payload = isEditingJob
+        ? {
+            ...jobRecord,
+            id: Number(jobRecord?.id ?? jobId),
+            srNo: Number(jobRecord?.srNo ?? jobNumber),
+            customerId: Number(f.customerId),
+            customer: f.name,
+            mobileNo: f.mobile,
+            productName:
+              selectedProductType?.name?.toUpperCase() ??
+              jobRecord?.productName ??
+              "",
+            productCompany: f.brand,
+            productId: Number(f.device),
+            modelConfi: f.configuration,
+            modelDetail: f.model,
+            modelCondition: f.condition,
+            extraItem: f.extras.filter((item) => item !== "None").join(", "),
+            remark: jobRecord?.remark ?? "",
+            technicalProblem: f.notes,
+            totalEstimatedCost: Number(f.estimate || 0),
+            repairCost: Number(f.partCost || 0),
             partCost: Number(f.partCost || 0),
-          },
-        ],
-      };
+            advance: Number(f.advance || 0),
+            balance,
+            dateOfDelivery: new Date(`${f.date}T12:00:00`).toISOString(),
+            getJobItems: jobRecord?.getJobItems?.length
+              ? jobRecord.getJobItems.map((item, index) =>
+                  index === 0
+                    ? {
+                        ...item,
+                        jobProfileId: Number(jobRecord?.id ?? jobId),
+                        technicalProblem: f.notes,
+                        repairEstimatedCost: Number(f.partCost || 0),
+                        partCost: Number(f.partCost || 0),
+                      }
+                    : item,
+                )
+              : [
+                  {
+                    id: 0,
+                    jobProfileId: Number(jobRecord?.id ?? jobId),
+                    isActive: true,
+                    srNo: 1,
+                    technicalProblem: f.notes,
+                    partNumber: "",
+                    partName: "",
+                    jobQRPath: "",
+                    customerView: f.notes,
+                    repairEstimatedCost: Number(f.partCost || 0),
+                    partCost: Number(f.partCost || 0),
+                  },
+                ],
+          }
+        : {
+            srNo: 0,
+            customerId: Number(f.customerId),
+            productId: Number(f.device),
+            modelConfi: f.configuration,
+            modelDetail: f.model,
+            modelCondition: f.condition,
+            modalCompany: f.brand,
+            extraItem: f.extras.join(", "),
+            remark: f.notes,
+            totalEstimatedCost: Number(f.estimate || 0),
+            technicalProblem: f.notes,
+            repairCost: Number(f.partCost || 0),
+            advance: Number(f.advance || 0),
+            balance,
+            status: 0,
+            isActive: 1,
+            dateOfDelivery: f.date,
+            getJobItems: [
+              {
+                srNo: 0,
+                partName: "",
+                partCost: Number(f.partCost || 0),
+              },
+            ],
+          };
 
-      const response = await createJob(payload);
+      const response = isEditingJob
+        ? await updateJob(payload)
+        : await createJob(payload);
       if (response?.success === false) {
-        throw new Error(response.message || "Unable to create job.");
+        throw new Error(
+          response.message ||
+            `Unable to ${isEditingJob ? "update" : "create"} job.`,
+        );
       }
 
-      showToast("Job created successfully.");
+      showToast(
+        isEditingJob
+          ? "Job updated successfully."
+          : "Job created successfully.",
+      );
 
-      if (f.sendWhatsapp && f.whatsappConsent) {
+      if (!isEditingJob && f.sendWhatsapp && f.whatsappConsent) {
         const text = encodeURIComponent(receiptLines.join("\n"));
         window.open(`https://wa.me/91${f.mobile}?text=${text}`, "_blank");
       }
-      if (f.printLabel) {
+      if (!isEditingJob && f.printLabel) {
         window.print();
       }
       navigate("/jobs");
     } catch (error) {
-      console.error("Create Job Error:", error.response?.data || error);
+      console.error(
+        isEditingJob ? "Update Job Error:" : "Create Job Error:",
+        error.response?.data || error,
+      );
       setSubmitError(
         error.response?.data?.message ||
           error.response?.data?.title ||
           error.message ||
-          "Unable to create job. Please try again.",
+        `Unable to ${
+          isEditingJob ? "update" : "create"
+        } job. Please try again.`,
       );
     } finally {
       setSaving(false);
@@ -652,18 +822,21 @@ export default function NewJobs() {
             {isEditingJob ? `Edit job #${jobNumber}` : "Register a job"}
           </h2>
         </div>
-        {!isEditingJob && <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={fillSample}
-            className="flex items-center gap-1.5 rounded-full bg-violet-50 px-4 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100"
-          >
-            <Sparkles size={14} /> Fill sample
-          </button>
-          <span className="rounded-full border border-violet-100 bg-white px-4 py-2 text-xs text-slate-500">
-            Next job <b className="font-bold text-violet-700">#{NEXT_JOB_NO}</b>
-          </span>
-        </div>}
+        {!isEditingJob && (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={fillSample}
+              className="flex items-center gap-1.5 rounded-full bg-violet-50 px-4 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100"
+            >
+              <Sparkles size={14} /> Fill sample
+            </button>
+            <span className="rounded-full border border-violet-100 bg-white px-4 py-2 text-xs text-slate-500">
+              Next job{" "}
+              <b className="font-bold text-violet-700">#{NEXT_JOB_NO}</b>
+            </span>
+          </div>
+        )}
       </div>
 
       {jobLoading && (
@@ -713,19 +886,41 @@ export default function NewJobs() {
               <Field label="Mobile number">
                 <input
                   value={f.mobile}
-                  onChange={(e) =>
-                    set(
-                      "mobile",
-                      e.target.value.replace(/\D/g, "").slice(0, 10),
-                    )
-                  }
+                  onChange={(e) => {
+                    const mobile = e.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 10);
+                    setF((current) => ({
+                      ...current,
+                      mobile,
+                      customerId:
+                        mobile === current.mobile ? current.customerId : "",
+                      name: mobile === current.mobile ? current.name : "",
+                    }));
+                    setErrors((current) => ({
+                      ...current,
+                      mobile: undefined,
+                      customerId: undefined,
+                      name: undefined,
+                    }));
+                  }}
                   inputMode="numeric"
                   placeholder="10 digit number"
                   className={inputCls}
                 />
+                {customerLookup.loading && (
+                  <p className="mt-1.5 text-[11px] text-slate-500">
+                    Looking up customer...
+                  </p>
+                )}
                 {errors.mobile && (
                   <p className={errCls}>
                     <AlertCircle size={12} /> {errors.mobile}
+                  </p>
+                )}
+                {customerLookup.message && (
+                  <p className="mt-1.5 text-[11px] text-amber-700">
+                    {customerLookup.message}
                   </p>
                 )}
               </Field>
@@ -1093,7 +1288,13 @@ export default function NewJobs() {
               className="flex items-center gap-2 rounded-full bg-violet-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:opacity-70 disabled:hover:translate-y-0"
             >
               <Printer size={15} />
-              {saving ? "Saving..." : "Save, print and send"}
+              {saving
+                ? isEditingJob
+                  ? "Updating..."
+                  : "Saving..."
+                : isEditingJob
+                  ? "Update job"
+                  : "Save, print and send"}
             </button>
           </div>
         </div>

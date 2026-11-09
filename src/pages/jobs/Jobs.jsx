@@ -22,7 +22,9 @@ import {
 } from "lucide-react";
 import PageHeader from "../../components/PageHeader";
 import StatusBadge from "../../components/StatusBadge";
-import { getJobList } from "../../services/JobService";
+import ConfirmDialog from "../../components/ConfirmDialog";
+import { getJobList, deleteProduct } from "../../services/JobService";
+import { useToast } from "../../context/ToastContext";
 
 /* ---------- filters ---------- */
 const s = (j) => String(j.statusLabel || "").toLowerCase();
@@ -134,6 +136,7 @@ function IconBtn({
   children,
   tone = "violet",
   compact = false,
+  disabled = false,
 }) {
   const tones = {
     violet: "hover:bg-violet-600 hover:text-white hover:shadow-violet-200",
@@ -147,7 +150,8 @@ function IconBtn({
       }}
       title={title}
       aria-label={title}
-      className={`flex shrink-0 items-center justify-center rounded-full border border-violet-100 bg-white text-violet-600 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg active:scale-90 ${compact ? "h-8 w-8" : "h-9 w-9"} ${tones[tone]}`}
+      disabled={disabled}
+      className={`flex shrink-0 items-center justify-center rounded-full border border-violet-100 bg-white text-violet-600 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg active:scale-90 disabled:cursor-not-allowed disabled:opacity-50 ${compact ? "h-8 w-8" : "h-9 w-9"} ${tones[tone]}`}
     >
       {children}
     </button>
@@ -161,6 +165,7 @@ function Actions({
   onPriority,
   onFavorite,
   onDelete,
+  deleting = false,
   isFavorite,
   compact = false,
 }) {
@@ -229,8 +234,17 @@ function Actions({
           className={isFavorite ? "fill-amber-400 text-amber-500" : ""}
         />
       </IconBtn>
-      <IconBtn compact={compact} title="Delete job" onClick={() => onDelete(j)}>
-        <Trash2 size={15} className="text-rose-600" />
+      <IconBtn
+        compact={compact}
+        title="Delete job"
+        onClick={() => onDelete(j)}
+        disabled={deleting}
+      >
+        {deleting ? (
+          <Loader2 size={15} className="animate-spin text-rose-600" />
+        ) : (
+          <Trash2 size={15} className="text-rose-600" />
+        )}
       </IconBtn>
     </div>
   );
@@ -245,6 +259,7 @@ const dueClass = (j) =>
 /* ---------- page ---------- */
 export default function Jobs() {
   const navigate = useNavigate();
+  const showToast = useToast();
   const [jobsList, setJobsList] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(true);
   const [jobsError, setJobsError] = useState("");
@@ -264,6 +279,9 @@ export default function Jobs() {
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(false);
   const [favorites, setFavorites] = useState(() => new Set());
+  const [deletingJobId, setDeletingJobId] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
+  const [jobToDelete, setJobToDelete] = useState(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -359,17 +377,47 @@ export default function Jobs() {
     navigate(`/jobs-new?jobId=${encodeURIComponent(job.id)}`);
   };
 
-  const deleteJob = (job) => {
-    if (!window.confirm(`Delete job ${jobNo(job)}? This cannot be undone.`)) {
-      return;
+  const confirmDeleteJob = async () => {
+    if (!jobToDelete) return;
+    const job = jobToDelete;
+    setDeletingJobId(job.id);
+    setDeleteError("");
+    try {
+      const response = await deleteProduct(job.id);
+      if (response?.success === false) {
+        throw new Error(response.message || "Unable to delete this job.");
+      }
+
+      if (selected?.id === job.id) setSelected(null);
+      setJobToDelete(null);
+      setFavorites((current) => {
+        const next = new Set(current);
+        next.delete(job.id);
+        return next;
+      });
+      showToast("Job deleted successfully.");
+
+      if (jobsList.length === 1 && pageNumber > 1) {
+        setPageNumber((page) => page - 1);
+      } else {
+        setJobsRetry((attempt) => attempt + 1);
+      }
+    } catch (error) {
+      console.error("Delete Job API Error:", error.response?.data || error);
+      setDeleteError(
+        error.response?.data?.message ||
+          error.response?.data?.title ||
+          error.message ||
+          "Unable to delete this job. Please try again.",
+      );
+    } finally {
+      setDeletingJobId(null);
     }
-    setJobsList((current) => current.filter((item) => item.id !== job.id));
-    setFavorites((current) => {
-      const next = new Set(current);
-      next.delete(job.id);
-      return next;
-    });
-    if (selected?.id === job.id) setSelected(null);
+  };
+
+  const deleteJob = (job) => {
+    setDeleteError("");
+    setJobToDelete(job);
   };
 
   const toggleFavorite = (job) => {
@@ -635,6 +683,7 @@ export default function Jobs() {
                         }
                         onFavorite={toggleFavorite}
                         onDelete={deleteJob}
+                        deleting={deletingJobId === j.id}
                         isFavorite={favorites.has(j.id)}
                         compact
                       />
@@ -720,6 +769,7 @@ export default function Jobs() {
                               }
                               onFavorite={toggleFavorite}
                               onDelete={deleteJob}
+                              deleting={deletingJobId === j.id}
                               isFavorite={favorites.has(j.id)}
                             />
                           </div>
@@ -934,6 +984,7 @@ export default function Jobs() {
                     }
                     onFavorite={toggleFavorite}
                     onDelete={deleteJob}
+                    deleting={deletingJobId === selected.id}
                     isFavorite={favorites.has(selected.id)}
                   />
                 </>
@@ -942,6 +993,22 @@ export default function Jobs() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(jobToDelete)}
+        title="Delete job?"
+        description="Are you sure you want to delete"
+        itemName={jobToDelete ? jobNo(jobToDelete) : ""}
+        itemMeta={jobToDelete?.customer || ""}
+        warning="This will permanently remove the job from your records."
+        confirmText="Delete Job"
+        loading={deletingJobId === jobToDelete?.id}
+        error={deleteError}
+        onCancel={() => {
+          setJobToDelete(null);
+          setDeleteError("");
+        }}
+        onConfirm={confirmDeleteJob}
+      />
     </div>
   );
 }
