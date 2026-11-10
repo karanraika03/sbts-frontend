@@ -70,3 +70,51 @@ export const updateJob = async (payload) => {
 
   return response.data;
 };
+
+// Send Reminder
+export const sendJobReminder = async (jobId) => {
+  const response = await http.post("/api/JSONQuery/send-reminder", null, {
+    params: { jobId },
+  });
+
+  return response.data;
+};
+
+// Resend Message
+export const resendJobMessage = async (id, messageType) => {
+  const response = await http.post("/api/JSONQuery/resend-message", null, {
+    params: {
+      id,
+      messageType,
+    },
+  });
+
+  return response.data;
+};
+
+// Send Custom Message
+export const sendCustomJobMessage = async (jobId, messageText) => {
+  const response = await http.post("/api/JSONQuery/sendcustommessage", null, {
+    params: {
+      jobId,
+      messageText,
+    },
+  });
+
+  return response.data;
+};
+
+export const toggleFavouriteCustomerFromJob = async (id, customerId) => {
+  const response = await http.post(
+    "/api/JSONQuery/togglefavouritecustomerfromjob",
+    null,
+    {
+      params: {
+        id,
+        customerId,
+      },
+    },
+  );
+
+  return response.data;
+};

@@ -20,10 +20,14 @@ import {
 import PageHeader from "../../components/PageHeader";
 import StatusBadge from "../../components/StatusBadge";
 import ConfirmDialog from "../../components/ConfirmDialog";
+import MassageBtn from "../../components/MassageBtn";
 import {
   getJobList,
-  deleteJob as deleteJobApi,
+  deleteJob,
+  toggleFavouriteCustomerFromJob,
 } from "../../services/JobService";
+
+import { useToast } from "../../context/ToastContext";
 
 /* ---------- filters ---------- */
 const s = (j) => String(j.status || "").toLowerCase();
@@ -78,6 +82,7 @@ const normalizeJob = (item) => ({
   balance: item.balance ?? 0,
   date: formatJobDate(item.deliveryDate),
   dueNote: "",
+  isFavourite: item.isFavourite === true || item.isFavourite === 1,
 });
 
 const makeFilterOption = (id, label, fallback) => {
@@ -210,21 +215,32 @@ function Actions({
   isFavorite,
   compact = false,
 }) {
-  const shareJob = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Job ${jobNo(j)}`,
-          text: `${j.customer} · ${j.device} · ${j.status}`,
-        });
-      } catch (error) {
-        if (error.name !== "AbortError") {
-          console.error("Unable to share job", error);
-        }
+  const showToast = useToast();
+
+  const handleFavourite = async () => {
+    try {
+      const response = await toggleFavouriteCustomerFromJob(j.id, j.customerId);
+
+      if (response?.success === false) {
+        throw new Error(response.message || "Unable to update favourite.");
       }
-      return;
+
+      onFavorite(j);
+
+      showToast(
+        isFavorite
+          ? "Customer removed from favourites."
+          : "Customer added to favourites.",
+      );
+    } catch (error) {
+      console.error("Favourite API Error:", error);
+
+      showToast(
+        error.response?.data?.message ||
+          error.message ||
+          "Unable to update favourite.",
+      );
     }
-    openWhatsApp(j);
   };
 
   return (
@@ -262,13 +278,13 @@ function Actions({
       >
         <Printer size={16} />
       </IconBtn>
-      <IconBtn compact={compact} title="Share job" onClick={shareJob}>
-        <Send size={15} />
-      </IconBtn>
+      <div className="relative">
+        <MassageBtn j={j} compact={compact} />
+      </div>
       <IconBtn
         compact={compact}
         title={isFavorite ? "Remove favorite" : "Add favorite"}
-        onClick={() => onFavorite(j)}
+        onClick={handleFavourite}
       >
         <Star
           size={15}
@@ -343,7 +359,17 @@ export default function Jobs() {
           throw new Error("Job list response data is not an array.");
         }
         if (active) {
-          setJobsList(response.data.map(normalizeJob));
+          const normalizedJobs = response.data.map(normalizeJob);
+
+          setJobsList(normalizedJobs);
+
+          setFavorites(
+            new Set(
+              normalizedJobs
+                .filter((job) => job.isFavourite)
+                .map((job) => job.id),
+            ),
+          );
           const options = getJobFilterOptions(response.data);
           setFilterOptions((current) => ({
             status: mergeFilterOptions(current.status, options.status),
@@ -411,7 +437,7 @@ export default function Jobs() {
     try {
       setDeletingId(job.id);
       setDeleteError("");
-      const response = await deleteJobApi(job.id);
+      const response = await deleteJob(job.id);
       if (response?.success === false) {
         throw new Error(response.message || "Unable to delete job.");
       }
@@ -525,25 +551,25 @@ export default function Jobs() {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {[
             {
-              label: "Status ID",
+              label: "Status",
               value: statusFilter,
               setValue: setStatusFilter,
               options: filterOptions.status,
             },
             {
-              label: "Customer ID",
+              label: "Customer",
               value: customerIdFilter,
               setValue: setCustomerIdFilter,
               options: filterOptions.customer,
             },
             {
-              label: "Product ID",
+              label: "Product",
               value: productIdFilter,
               setValue: setProductIdFilter,
               options: filterOptions.product,
             },
             {
-              label: "Staff ID",
+              label: "Staff",
               value: staffIdFilter,
               setValue: setStaffIdFilter,
               options: filterOptions.staff,
