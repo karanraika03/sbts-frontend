@@ -127,3 +127,11 @@ export const printLabelSheet = async (id) => {
 
   return response.data;
 };
+
+export const printJobSheet = async (id) => {
+  const response = await http.get(`/api/DocumentPrint/print-job-sheet/${id}`, {
+    responseType: "blob",
+  });
+
+  return response.data;
+};

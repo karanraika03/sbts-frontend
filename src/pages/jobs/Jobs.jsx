@@ -26,6 +26,7 @@ import {
   deleteJob,
   toggleFavouriteCustomerFromJob,
   printLabelSheet,
+  printJobSheet,
   getProductTypes,
   getCustomerDropdown,
 } from "../../services/JobService";
@@ -228,6 +229,31 @@ function Actions({
     }
   };
 
+  const handlePrintJobSheet = async (id) => {
+    try {
+      const pdfBlob = await printJobSheet(id);
+
+      const url = window.URL.createObjectURL(
+        new Blob([pdfBlob], { type: "application/pdf" }),
+      );
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `JobSheet-${id}.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      showToast("Job sheet downloaded successfully.");
+    } catch (error) {
+      console.error("Print Job Sheet Error:", error);
+      showToast("Unable to download job sheet.");
+    }
+  };
+
   const handleFavourite = async () => {
     try {
       const response = await toggleFavouriteCustomerFromJob(j.id, j.customerId);
@@ -277,8 +303,8 @@ function Actions({
       </IconBtn> */}
       <IconBtn
         compact={compact}
-        title="Print label"
-        onClick={() => printJob(j)}
+        title="Print Job Sheet"
+        onClick={() => handlePrintJobSheet(j.id)}
       >
         <Printer size={16} />
       </IconBtn>
@@ -672,7 +698,10 @@ export default function Jobs() {
                 ))}
               </select>
               {error && (
-                <span role="alert" className="mt-1 block text-[10px] text-red-600">
+                <span
+                  role="alert"
+                  className="mt-1 block text-[10px] text-red-600"
+                >
                   {error}
                 </span>
               )}
