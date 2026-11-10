@@ -5,7 +5,6 @@ import {
   ChevronDown,
   Check,
   Sparkles,
-  Printer,
   AlertCircle,
   User,
   Laptop,
@@ -747,13 +746,6 @@ export default function NewJobs() {
           : "Job created successfully.",
       );
 
-      if (!isEditingJob && f.sendWhatsapp && f.whatsappConsent) {
-        const text = encodeURIComponent(receiptLines.join("\n"));
-        window.open(`https://wa.me/91${f.mobile}?text=${text}`, "_blank");
-      }
-      if (!isEditingJob && f.printLabel) {
-        window.print();
-      }
       navigate("/jobs");
     } catch (error) {
       console.error(
@@ -764,9 +756,9 @@ export default function NewJobs() {
         error.response?.data?.message ||
           error.response?.data?.title ||
           error.message ||
-        `Unable to ${
-          isEditingJob ? "update" : "create"
-        } job. Please try again.`,
+          `Unable to ${
+            isEditingJob ? "update" : "create"
+          } job. Please try again.`,
       );
     } finally {
       setSaving(false);
@@ -1264,16 +1256,15 @@ export default function NewJobs() {
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 rounded-full bg-violet-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:opacity-70 disabled:hover:translate-y-0"
+              className="rounded-full bg-violet-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:opacity-70 disabled:hover:translate-y-0"
             >
-              <Printer size={15} />
               {saving
                 ? isEditingJob
                   ? "Updating..."
                   : "Saving..."
                 : isEditingJob
                   ? "Update job"
-                  : "Save, print and send"}
+                  : "Submit"}
             </button>
           </div>
         </div>

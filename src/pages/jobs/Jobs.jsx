@@ -16,18 +16,17 @@ import {
   X,
   Loader2,
   RefreshCw,
-  ChevronLeft,
-  ChevronRight,
-  RotateCw,
 } from "lucide-react";
 import PageHeader from "../../components/PageHeader";
 import StatusBadge from "../../components/StatusBadge";
 import ConfirmDialog from "../../components/ConfirmDialog";
-import { getJobList, deleteProduct } from "../../services/JobService";
-import { useToast } from "../../context/ToastContext";
+import {
+  getJobList,
+  deleteJob as deleteJobApi,
+} from "../../services/JobService";
 
 /* ---------- filters ---------- */
-const s = (j) => String(j.statusLabel || "").toLowerCase();
+const s = (j) => String(j.status || "").toLowerCase();
 const TABS = [
   { key: "All", test: () => true },
   { key: "Pending", test: (j) => s(j) === "pending" },
@@ -62,33 +61,78 @@ const formatJobDate = (value) => {
   });
 };
 
-const normalizeJob = (item) => {
+const normalizeJob = (item) => ({
+  id: item.id,
+  srNo: item.srNo ?? item.id,
+  customerId: item.customerId,
+  customer: item.customer ?? "—",
+  code: "",
+  phone: item.mobileNo ?? "",
+  device: item.productName ?? "—",
+  issue: item.productDetail ?? "—",
+  status: String(item.statusN ?? "—"),
+  statusId: item.status,
+  priority: item.priority ?? "—",
+  amount: item.totalEstimatedCost ?? 0,
+  advance: item.advance ?? 0,
+  balance: item.balance ?? 0,
+  date: formatJobDate(item.deliveryDate),
+  dueNote: "",
+});
+
+const makeFilterOption = (id, label, fallback) => {
+  if (id == null || String(id).trim() === "") return null;
   return {
-    id: item.id,
-    srNo: item.srNo,
-    customerId: item.customerId,
-    customer: item.customer,
-    code: "",
-    phone: item.mobileNo,
-    device: item.productName,
-    issue: item.productDetail,
-    status: item.status,
-    statusLabel: item.statusN,
-    priority: "—",
-    amount: item.totalEstimatedCost,
-    advance: item.advance,
-    balance: item.balance,
-    isActive: item.isActive,
-    isFavourite: item.isFavourite,
-    date: formatJobDate(item.deliveryDate),
-    dueNote: "",
+    value: String(id),
+    label: String(label ?? "").trim() || `${fallback} ${id}`,
   };
 };
 
-const parseOptionalId = (value) => {
-  if (value.trim() === "") return undefined;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
+const getJobFilterOptions = (jobs) => ({
+  status: jobs
+    .map((job) =>
+      makeFilterOption(
+        job.status ?? job.statusId,
+        job.statusN ?? job.statusName ?? job.statusLabel,
+        "Status",
+      ),
+    )
+    .filter(Boolean),
+  customer: jobs
+    .map((job) =>
+      makeFilterOption(
+        job.customerId,
+        job.customer ?? job.customerName,
+        "Customer",
+      ),
+    )
+    .filter(Boolean),
+  product: jobs
+    .map((job) =>
+      makeFilterOption(
+        job.productId ?? job.productTypeId,
+        job.productName ?? job.productTypeName,
+        "Product",
+      ),
+    )
+    .filter(Boolean),
+  staff: jobs
+    .map((job) =>
+      makeFilterOption(
+        job.staffId ?? job.technicianId ?? job.employeeId,
+        job.staffName ?? job.technicianName ?? job.employeeName,
+        "Staff",
+      ),
+    )
+    .filter(Boolean),
+});
+
+const mergeFilterOptions = (current, incoming) => {
+  const optionsById = new Map(current.map((option) => [option.value, option]));
+  incoming.forEach((option) => optionsById.set(option.value, option));
+  return [...optionsById.values()].sort((a, b) =>
+    a.label.localeCompare(b.label),
+  );
 };
 
 const paidNote = (j) => {
@@ -102,7 +146,7 @@ const paidNote = (j) => {
 const waText = (j) =>
   s(j).startsWith("ready")
     ? `Hello ${j.customer}, your ${j.device} (Job ${jobNo(j)}) is ready for pickup. - Shree Bhanu Technical Solutions, Red Cross Market, Hisar`
-    : `Hello ${j.customer}, update on your ${j.device} (Job ${jobNo(j)}): ${j.statusLabel}. - Shree Bhanu Technical Solutions`;
+    : `Hello ${j.customer}, update on your ${j.device} (Job ${jobNo(j)}): ${j.status}. - Shree Bhanu Technical Solutions`;
 
 const openWhatsApp = (j) => {
   const p = phoneOf(j);
@@ -136,7 +180,6 @@ function IconBtn({
   children,
   tone = "violet",
   compact = false,
-  disabled = false,
 }) {
   const tones = {
     violet: "hover:bg-violet-600 hover:text-white hover:shadow-violet-200",
@@ -150,8 +193,7 @@ function IconBtn({
       }}
       title={title}
       aria-label={title}
-      disabled={disabled}
-      className={`flex shrink-0 items-center justify-center rounded-full border border-violet-100 bg-white text-violet-600 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg active:scale-90 disabled:cursor-not-allowed disabled:opacity-50 ${compact ? "h-8 w-8" : "h-9 w-9"} ${tones[tone]}`}
+      className={`flex shrink-0 items-center justify-center rounded-full border border-violet-100 bg-white text-violet-600 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg active:scale-90 ${compact ? "h-8 w-8" : "h-9 w-9"} ${tones[tone]}`}
     >
       {children}
     </button>
@@ -165,7 +207,6 @@ function Actions({
   onPriority,
   onFavorite,
   onDelete,
-  deleting = false,
   isFavorite,
   compact = false,
 }) {
@@ -174,7 +215,7 @@ function Actions({
       try {
         await navigator.share({
           title: `Job ${jobNo(j)}`,
-          text: `${j.customer} · ${j.device} · ${j.statusLabel}`,
+          text: `${j.customer} · ${j.device} · ${j.status}`,
         });
       } catch (error) {
         if (error.name !== "AbortError") {
@@ -234,17 +275,8 @@ function Actions({
           className={isFavorite ? "fill-amber-400 text-amber-500" : ""}
         />
       </IconBtn>
-      <IconBtn
-        compact={compact}
-        title="Delete job"
-        onClick={() => onDelete(j)}
-        disabled={deleting}
-      >
-        {deleting ? (
-          <Loader2 size={15} className="animate-spin text-rose-600" />
-        ) : (
-          <Trash2 size={15} className="text-rose-600" />
-        )}
+      <IconBtn compact={compact} title="Delete job" onClick={() => onDelete(j)}>
+        <Trash2 size={15} className="text-rose-600" />
       </IconBtn>
     </div>
   );
@@ -259,110 +291,101 @@ const dueClass = (j) =>
 /* ---------- page ---------- */
 export default function Jobs() {
   const navigate = useNavigate();
-  const showToast = useToast();
   const [jobsList, setJobsList] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(true);
   const [jobsError, setJobsError] = useState("");
   const [jobsRetry, setJobsRetry] = useState(0);
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filters, setFilters] = useState({
-    status: "",
-    customerId: "",
-    productId: "",
-    staffId: "",
-  });
-  const [pageNumber, setPageNumber] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
   const [view, setView] = useState("table");
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(false);
   const [favorites, setFavorites] = useState(() => new Set());
-  const [deletingJobId, setDeletingJobId] = useState(null);
-  const [deleteError, setDeleteError] = useState("");
+  const [pageSize, setPageSize] = useState(10);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [customerIdFilter, setCustomerIdFilter] = useState("");
+  const [productIdFilter, setProductIdFilter] = useState("");
+  const [staffIdFilter, setStaffIdFilter] = useState("");
+  const [filterOptions, setFilterOptions] = useState({
+    status: [],
+    customer: [],
+    product: [],
+    staff: [],
+  });
   const [jobToDelete, setJobToDelete] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 350);
+    let active = true;
 
-    return () => window.clearTimeout(timeout);
-  }, [search]);
-
-  useEffect(() => {
-    if (search !== debouncedSearch) return undefined;
-
-    const controller = new AbortController();
     const fetchJobs = async () => {
       setJobsLoading(true);
       setJobsError("");
-
       try {
-        const response = await getJobList(
-          {
-            pageSize,
-            pageNumber,
-            searchKey: debouncedSearch,
-            status: parseOptionalId(filters.status),
-            customerId: parseOptionalId(filters.customerId),
-            productId: parseOptionalId(filters.productId),
-            staffId: parseOptionalId(filters.staffId),
-          },
-          { signal: controller.signal },
-        );
-
-        if (response?.success !== true || !Array.isArray(response.data)) {
-          throw new Error(response?.message || "Unexpected job list response.");
+        const params = {
+          pageSize,
+          pageNumber,
+          ...(search.trim() && { searchKey: search.trim() }),
+          ...(statusFilter !== "" && { status: Number(statusFilter) }),
+          ...(customerIdFilter !== "" && {
+            customerId: Number(customerIdFilter),
+          }),
+          ...(productIdFilter !== "" && { productId: Number(productIdFilter) }),
+          ...(staffIdFilter !== "" && { staffId: Number(staffIdFilter) }),
+        };
+        const response = await getJobList(params);
+        if (response?.success === false) {
+          throw new Error(response.message || "Unable to load jobs.");
         }
-
-        const rows = response.data.map(normalizeJob);
-        const pageCount = Number(response.totalPages);
-        if (!Number.isInteger(pageCount) || pageCount < 0) {
-          throw new Error("Job list response has an invalid totalPages value.");
+        if (!Array.isArray(response?.data)) {
+          throw new Error("Job list response data is not an array.");
         }
-
-        setJobsList(rows);
-        setTotalPages(Math.max(1, pageCount));
-        setFavorites(
-          new Set(
-            rows.filter((job) => job.isFavourite === 1).map((job) => job.id),
-          ),
-        );
+        if (active) {
+          setJobsList(response.data.map(normalizeJob));
+          const options = getJobFilterOptions(response.data);
+          setFilterOptions((current) => ({
+            status: mergeFilterOptions(current.status, options.status),
+            customer: mergeFilterOptions(current.customer, options.customer),
+            product: mergeFilterOptions(current.product, options.product),
+            staff: mergeFilterOptions(current.staff, options.staff),
+          }));
+          setTotalPages(Math.max(1, Number(response.totalPages) || 1));
+        }
       } catch (error) {
-        if (controller.signal.aborted) return;
+        if (error.name === "CanceledError" || error.code === "ERR_CANCELED")
+          return;
         console.error("Get Job List API Error:", error);
-        setJobsList([]);
-        setJobsError(
-          error.response?.data?.message ||
-            error.message ||
-            "Unable to load jobs. Please try again.",
-        );
+        if (active) {
+          setJobsList([]);
+          setTotalPages(1);
+          setJobsError(
+            error.response?.data?.message ||
+              error.message ||
+              "Unable to load jobs. Please try again.",
+          );
+        }
       } finally {
-        if (!controller.signal.aborted) setJobsLoading(false);
+        if (active) setJobsLoading(false);
       }
     };
 
-    fetchJobs();
+    const timer = setTimeout(fetchJobs, search ? 350 : 0);
     return () => {
-      controller.abort();
+      active = false;
+      clearTimeout(timer);
     };
-  }, [debouncedSearch, filters, jobsRetry, pageNumber, pageSize, search]);
-
-  const updateFilter = (key, value) => {
-    setFilters((current) => ({ ...current, [key]: value }));
-    setPageNumber(1);
-  };
-
-  const clearFilters = () => {
-    setSearch("");
-    setDebouncedSearch("");
-    setFilters({ status: "", customerId: "", productId: "", staffId: "" });
-    setPageNumber(1);
-  };
-
-  const filtered = jobsList;
+  }, [
+    jobsRetry,
+    pageSize,
+    pageNumber,
+    search,
+    statusFilter,
+    customerIdFilter,
+    productIdFilter,
+    staffIdFilter,
+  ]);
 
   const updateJob = (job, changes) => {
     const updated = { ...job, ...changes };
@@ -377,47 +400,49 @@ export default function Jobs() {
     navigate(`/jobs-new?jobId=${encodeURIComponent(job.id)}`);
   };
 
-  const confirmDeleteJob = async () => {
-    if (!jobToDelete) return;
-    const job = jobToDelete;
-    setDeletingJobId(job.id);
+  const handleDeleteJob = (job) => {
     setDeleteError("");
+    setJobToDelete(job);
+  };
+
+  const confirmDeleteJob = async () => {
+    if (!jobToDelete || deletingId != null) return;
+    const job = jobToDelete;
     try {
-      const response = await deleteProduct(job.id);
+      setDeletingId(job.id);
+      setDeleteError("");
+      const response = await deleteJobApi(job.id);
       if (response?.success === false) {
-        throw new Error(response.message || "Unable to delete this job.");
+        throw new Error(response.message || "Unable to delete job.");
       }
 
-      if (selected?.id === job.id) setSelected(null);
       setJobToDelete(null);
       setFavorites((current) => {
         const next = new Set(current);
         next.delete(job.id);
         return next;
       });
-      showToast("Job deleted successfully.");
+      if (selected?.id === job.id) setSelected(null);
+      setEditing(false);
 
+      // Refetch from server so the UI always reflects persisted data.
+      // If the current page becomes empty, move back one page.
       if (jobsList.length === 1 && pageNumber > 1) {
-        setPageNumber((page) => page - 1);
+        setPageNumber((current) => current - 1);
       } else {
-        setJobsRetry((attempt) => attempt + 1);
+        setJobsRetry((current) => current + 1);
       }
     } catch (error) {
-      console.error("Delete Job API Error:", error.response?.data || error);
+      console.error("Delete Job API Error:", error);
       setDeleteError(
         error.response?.data?.message ||
           error.response?.data?.title ||
           error.message ||
-          "Unable to delete this job. Please try again.",
+          "Unable to delete job. Please try again.",
       );
     } finally {
-      setDeletingJobId(null);
+      setDeletingId(null);
     }
-  };
-
-  const deleteJob = (job) => {
-    setDeleteError("");
-    setJobToDelete(job);
   };
 
   const toggleFavorite = (job) => {
@@ -496,59 +521,86 @@ export default function Jobs() {
           </button>
         </div>
       )}
-      <div className="mb-4 space-y-3">
-        <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+      <div className="mb-4 space-y-2.5">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            ["status", "Status ID"],
-            ["customerId", "Customer ID"],
-            ["productId", "Product ID"],
-            ["staffId", "Staff ID"],
-          ].map(([key, label]) => (
-            <label key={key} className="block">
+            {
+              label: "Status ID",
+              value: statusFilter,
+              setValue: setStatusFilter,
+              options: filterOptions.status,
+            },
+            {
+              label: "Customer ID",
+              value: customerIdFilter,
+              setValue: setCustomerIdFilter,
+              options: filterOptions.customer,
+            },
+            {
+              label: "Product ID",
+              value: productIdFilter,
+              setValue: setProductIdFilter,
+              options: filterOptions.product,
+            },
+            {
+              label: "Staff ID",
+              value: staffIdFilter,
+              setValue: setStaffIdFilter,
+              options: filterOptions.staff,
+            },
+          ].map(({ label, value, setValue, options }) => (
+            <label key={label} className="block min-w-0">
               <span className="mb-1 block pl-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                 {label}
               </span>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                inputMode="numeric"
-                value={filters[key]}
-                onChange={(event) => updateFilter(key, event.target.value)}
-                placeholder="All"
-                className="w-full rounded-xl border border-violet-100 bg-white px-3 py-2.5 text-xs text-slate-700 shadow-sm outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
-              />
+              <select
+                value={value}
+                onChange={(event) => {
+                  setValue(event.target.value);
+                  setPageNumber(1);
+                }}
+                className="h-[46px] w-full rounded-2xl border border-violet-100 bg-white px-3.5 text-[13px] text-slate-600 shadow-sm outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+              >
+                <option value="">All</option>
+                {options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} (ID: {option.value})
+                  </option>
+                ))}
+              </select>
             </label>
           ))}
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex w-full items-center gap-2 rounded-full border border-violet-100 bg-white px-4 py-2.5 shadow-sm transition focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-100">
-            <Search size={15} className="shrink-0 text-slate-400" />
+
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
+          <div className="flex min-h-[46px] min-w-0 flex-1 items-center gap-2.5 rounded-full border border-violet-100 bg-white px-4 shadow-sm transition focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-100">
+            <Search size={16} className="shrink-0 text-slate-400" />
             <input
               value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
+              onChange={(e) => {
+                setSearch(e.target.value);
                 setPageNumber(1);
               }}
               placeholder="Search job, name or phone"
-              className="w-full bg-transparent text-xs text-slate-700 outline-none placeholder:text-slate-400"
+              className="w-full bg-transparent text-[13px] text-slate-700 outline-none placeholder:text-slate-400"
             />
             {search && (
               <button
                 type="button"
+                aria-label="Clear search"
                 onClick={() => {
                   setSearch("");
                   setPageNumber(1);
                 }}
-                aria-label="Clear search"
-                className="text-slate-400 hover:text-violet-600"
+                className="shrink-0 text-slate-400 hover:text-violet-600"
               >
-                <X size={14} />
+                <X size={15} />
               </button>
             )}
           </div>
-          <div className="flex shrink-0 items-center justify-end gap-2">
-            <label className="flex items-center gap-2 whitespace-nowrap text-[11px] font-semibold text-slate-500">
+
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
+            <label className="flex items-center gap-2 text-[11px] font-medium text-slate-500">
               Rows per page
               <select
                 value={pageSize}
@@ -556,7 +608,7 @@ export default function Jobs() {
                   setPageSize(Number(event.target.value));
                   setPageNumber(1);
                 }}
-                className="rounded-lg border border-violet-100 bg-white px-2 py-2 text-xs text-slate-700 outline-none focus:border-violet-400"
+                className="h-9 rounded-xl border border-violet-100 bg-white px-2.5 text-[13px] text-slate-700 outline-none focus:border-violet-400"
               >
                 {[10, 20, 50, 100].map((size) => (
                   <option key={size} value={size}>
@@ -567,19 +619,30 @@ export default function Jobs() {
             </label>
             <button
               type="button"
-              onClick={clearFilters}
-              className="rounded-full border border-violet-100 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:border-violet-300 hover:text-violet-700"
+              onClick={() => {
+                setSearch("");
+                setStatusFilter("");
+                setCustomerIdFilter("");
+                setProductIdFilter("");
+                setStaffIdFilter("");
+                setPageNumber(1);
+              }}
+              className="h-9 rounded-full border border-violet-100 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-sm transition hover:border-violet-200 hover:text-violet-700"
             >
-              Clear Filters
+              Clear filters
             </button>
             <button
               type="button"
-              onClick={() => setJobsRetry((attempt) => attempt + 1)}
-              title="Refresh jobs"
               aria-label="Refresh jobs"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-100 bg-white text-violet-600 shadow-sm transition hover:border-violet-300 hover:bg-violet-50"
+              title="Refresh jobs"
+              onClick={() => setJobsRetry((attempt) => attempt + 1)}
+              disabled={jobsLoading}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-100 bg-white text-violet-600 shadow-sm transition hover:bg-violet-50 disabled:opacity-50"
             >
-              <RotateCw size={15} />
+              <RefreshCw
+                size={15}
+                className={jobsLoading ? "animate-spin" : ""}
+              />
             </button>
           </div>
         </div>
@@ -620,7 +683,7 @@ export default function Jobs() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.map((j, i) => (
+                {jobsList.map((j, i) => (
                   <tr
                     key={j.id}
                     onClick={() => setSelected(j)}
@@ -668,7 +731,7 @@ export default function Jobs() {
                       )}
                     </td>
                     <td className="px-3 py-3.5">
-                      <StatusBadge status={j.statusLabel} />
+                      <StatusBadge status={j.status} />
                     </td>
                     <td className="px-3 py-3.5">
                       <Actions
@@ -682,8 +745,7 @@ export default function Jobs() {
                           })
                         }
                         onFavorite={toggleFavorite}
-                        onDelete={deleteJob}
-                        deleting={deletingJobId === j.id}
+                        onDelete={handleDeleteJob}
                         isFavorite={favorites.has(j.id)}
                         compact
                       />
@@ -692,137 +754,115 @@ export default function Jobs() {
                 ))}
               </tbody>
             </table>
-            {filtered.length === 0 && (
+            {jobsList.length === 0 && (
               <div className="fade-in p-12 text-center text-sm text-slate-400">
                 No repair jobs found.
               </div>
             )}
           </div>
+          <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span>
+                Showing {jobsList.length} jobs · Page{" "}
+                <strong>{pageNumber}</strong> of <strong>{totalPages}</strong>
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={pageNumber <= 1 || jobsLoading}
+                onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+                className="rounded-lg border border-violet-100 px-4 py-2 text-xs font-bold text-violet-600 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="min-w-8 text-center text-xs font-bold text-slate-700">
+                {pageNumber}
+              </span>
+              <button
+                type="button"
+                disabled={pageNumber >= totalPages || jobsLoading}
+                onClick={() =>
+                  setPageNumber((p) => Math.min(totalPages, p + 1))
+                }
+                className="rounded-lg border border-violet-100 px-4 py-2 text-xs font-bold text-violet-600 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </section>
       )}
 
       {/* BOARD VIEW */}
-      {!jobsLoading &&
-        !jobsError &&
-        view === "board" &&
-        filtered.length === 0 && (
-          <div className="fade-in rounded-[22px] border border-violet-100 bg-white p-12 text-center text-sm text-slate-400 shadow-sm">
-            No repair jobs found.
-          </div>
-        )}
-      {!jobsLoading &&
-        !jobsError &&
-        view === "board" &&
-        filtered.length > 0 && (
-          <div className="fade-in grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {TABS.filter((t) => !["All", "Overdue"].includes(t.key)).map(
-              (col) => {
-                const items = filtered.filter(col.test);
-                return (
-                  <div
-                    key={col.key}
-                    className="rounded-2xl bg-[#f1eefc]/70 p-3"
-                  >
-                    <div className="mb-3 flex items-center justify-between px-1">
-                      <h4 className="text-xs font-bold text-slate-700">
-                        {col.key}
-                      </h4>
-                      <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-600">
-                        {items.length}
-                      </span>
-                    </div>
-                    <div className="space-y-2.5">
-                      {items.map((j, i) => (
-                        <div
-                          key={j.id}
-                          onClick={() => setSelected(j)}
-                          style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
-                          className="row-in cursor-pointer rounded-xl border border-violet-100 bg-white p-3 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-violet-100"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-violet-600">
-                              {jobNo(j)}
-                            </span>
-                            <span className="text-xs font-bold text-slate-700">
-                              {rupee(j.amount)}
-                            </span>
-                          </div>
-                          <p className="mt-1.5 text-[13px] font-bold text-slate-800">
-                            {j.customer}
-                          </p>
-                          <p className="text-[11px] text-slate-400">
-                            {j.device} · {j.issue}
-                          </p>
-                          <div className="mt-2.5 flex items-center justify-between">
-                            <span className="text-[11px] text-slate-500">
-                              {j.date}
-                            </span>
-                            <Actions
-                              j={j}
-                              onOpen={setSelected}
-                              onEdit={editJob}
-                              onPriority={(job) =>
-                                updateJob(job, {
-                                  priority:
-                                    job.priority === "High" ? "Medium" : "High",
-                                })
-                              }
-                              onFavorite={toggleFavorite}
-                              onDelete={deleteJob}
-                              deleting={deletingJobId === j.id}
-                              isFavorite={favorites.has(j.id)}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                      {items.length === 0 && (
-                        <p className="py-6 text-center text-[11px] text-slate-400">
-                          No jobs
-                        </p>
-                      )}
-                    </div>
+      {!jobsLoading && !jobsError && view === "board" && (
+        <div className="fade-in grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {TABS.filter((t) => !["All", "Overdue"].includes(t.key)).map(
+            (col) => {
+              const items = jobsList.filter(col.test);
+              return (
+                <div key={col.key} className="rounded-2xl bg-[#f1eefc]/70 p-3">
+                  <div className="mb-3 flex items-center justify-between px-1">
+                    <h4 className="text-xs font-bold text-slate-700">
+                      {col.key}
+                    </h4>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-600">
+                      {items.length}
+                    </span>
                   </div>
-                );
-              },
-            )}
-          </div>
-        )}
-
-      {!jobsLoading && !jobsError && (
-        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-violet-100 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[11px] text-slate-500">
-            Showing {jobsList.length} records | Page {pageNumber} of{" "}
-            {totalPages}
-          </p>
-          <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setPageNumber((current) => Math.max(1, current - 1))
-                }
-                disabled={pageNumber <= 1 || jobsLoading}
-                className="flex h-8 items-center gap-1 rounded-full border border-violet-100 px-3 text-xs font-bold text-slate-600 transition hover:border-violet-300 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronLeft size={14} />
-                Previous
-              </button>
-              <span className="min-w-16 text-center text-xs font-bold text-violet-700">
-                {pageNumber} / {totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() =>
-                  setPageNumber((current) => Math.min(totalPages, current + 1))
-                }
-                disabled={pageNumber >= totalPages || jobsLoading}
-                className="flex h-8 items-center gap-1 rounded-full border border-violet-100 px-3 text-xs font-bold text-slate-600 transition hover:border-violet-300 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Next
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
+                  <div className="space-y-2.5">
+                    {items.map((j, i) => (
+                      <div
+                        key={j.id}
+                        onClick={() => setSelected(j)}
+                        style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
+                        className="row-in cursor-pointer rounded-xl border border-violet-100 bg-white p-3 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-violet-100"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-violet-600">
+                            {jobNo(j)}
+                          </span>
+                          <span className="text-xs font-bold text-slate-700">
+                            {rupee(j.amount)}
+                          </span>
+                        </div>
+                        <p className="mt-1.5 text-[13px] font-bold text-slate-800">
+                          {j.customer}
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          {j.device} · {j.issue}
+                        </p>
+                        <div className="mt-2.5 flex items-center justify-between">
+                          <span className="text-[11px] text-slate-500">
+                            {j.date}
+                          </span>
+                          <Actions
+                            j={j}
+                            onOpen={setSelected}
+                            onEdit={editJob}
+                            onPriority={(job) =>
+                              updateJob(job, {
+                                priority:
+                                  job.priority === "High" ? "Medium" : "High",
+                              })
+                            }
+                            onFavorite={toggleFavorite}
+                            onDelete={handleDeleteJob}
+                            isFavorite={favorites.has(j.id)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    {items.length === 0 && (
+                      <p className="py-6 text-center text-[11px] text-slate-400">
+                        No jobs
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            },
+          )}
         </div>
       )}
 
@@ -895,17 +935,16 @@ export default function Jobs() {
                     Status
                   </span>
                   <select
-                    value={selected.statusLabel}
+                    value={selected.status}
                     onChange={(event) =>
                       setSelected((current) => ({
                         ...current,
-                        statusLabel: event.target.value,
+                        status: event.target.value,
                       }))
                     }
                     className="w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400"
                   >
                     {[
-                      "Pending",
                       "Received",
                       "Diagnosing",
                       "Awaiting Parts",
@@ -972,7 +1011,7 @@ export default function Jobs() {
                 </>
               ) : (
                 <>
-                  <StatusBadge status={selected.statusLabel} />
+                  <StatusBadge status={selected.status} />
                   <Actions
                     j={selected}
                     onOpen={setSelected}
@@ -983,8 +1022,7 @@ export default function Jobs() {
                       })
                     }
                     onFavorite={toggleFavorite}
-                    onDelete={deleteJob}
-                    deleting={deletingJobId === selected.id}
+                    onDelete={handleDeleteJob}
                     isFavorite={favorites.has(selected.id)}
                   />
                 </>
@@ -997,11 +1035,11 @@ export default function Jobs() {
         open={Boolean(jobToDelete)}
         title="Delete job?"
         description="Are you sure you want to delete"
-        itemName={jobToDelete ? jobNo(jobToDelete) : ""}
-        itemMeta={jobToDelete?.customer || ""}
+        itemName={jobToDelete ? `Job ${jobNo(jobToDelete)}` : ""}
+        itemMeta={`Customer: ${jobToDelete?.customer ?? ""}`}
         warning="This will permanently remove the job from your records."
         confirmText="Delete Job"
-        loading={deletingJobId === jobToDelete?.id}
+        loading={deletingId === jobToDelete?.id}
         error={deleteError}
         onCancel={() => {
           setJobToDelete(null);

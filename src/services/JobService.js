@@ -18,24 +18,30 @@ export const createJob = async (payload) => {
   return response.data;
 };
 
-export const getJobList = async (params = {}, options = {}) => {
-  const queryParams = {
-    pageSize: params.pageSize ?? 10,
-    pageNumber: params.pageNumber ?? 1,
-    searchKey: params.searchKey ?? "",
-  };
-
-  ["status", "customerId", "productId", "staffId"].forEach((key) => {
-    const value = params[key];
-    if (value !== undefined && value !== null && String(value).trim() !== "") {
-      queryParams[key] = value;
-    }
-  });
-
+export const getJobList = async (params = {}) => {
   const response = await http.get("/api/JobRegistration/list", {
-    params: queryParams,
-    signal: options.signal,
+    params: {
+      pageSize: params.pageSize ?? 10,
+      pageNumber: params.pageNumber ?? 1,
+      ...(params.searchKey && { searchKey: params.searchKey }),
+      ...(params.status != null && { status: params.status }),
+      ...(params.customerId != null && {
+        customerId: params.customerId,
+      }),
+      ...(params.productId != null && {
+        productId: params.productId,
+      }),
+      ...(params.staffId != null && {
+        staffId: params.staffId,
+      }),
+    },
   });
+
+  return response.data;
+};
+
+export const deleteJob = async (id) => {
+  const response = await http.delete(`/api/JobRegistration/delete/${id}`);
 
   return response.data;
 };
@@ -61,12 +67,6 @@ export const getCustomerByMobile = async (mobile, options = {}) => {
 
 export const updateJob = async (payload) => {
   const response = await http.put("/api/JobRegistration/update", payload);
-
-  return response.data;
-};
-
-export const deleteProduct = async (id) => {
-  const response = await http.delete(`/api/ProductRegistration/delete/${id}`);
 
   return response.data;
 };
