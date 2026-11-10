@@ -25,6 +25,7 @@ import {
   getJobList,
   deleteJob,
   toggleFavouriteCustomerFromJob,
+  printLabelSheet,
 } from "../../services/JobService";
 
 import { useToast } from "../../context/ToastContext";
@@ -217,6 +218,32 @@ function Actions({
 }) {
   const showToast = useToast();
 
+  const handlePrintLabel = async (id) => {
+    try {
+      const pdfBlob = await printLabelSheet(id);
+
+      const file = new Blob([pdfBlob], {
+        type: "application/pdf",
+      });
+
+      const url = window.URL.createObjectURL(file);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "LabelSheet.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      showToast("Label sheet downloaded successfully.");
+    } catch (error) {
+      console.error("Print Label Error:", error);
+      showToast("Unable to download label sheet.");
+    }
+  };
+
   const handleFavourite = async () => {
     try {
       const response = await toggleFavouriteCustomerFromJob(j.id, j.customerId);
@@ -253,24 +280,17 @@ function Actions({
       <IconBtn compact={compact} title="Edit job" onClick={() => onEdit(j)}>
         <Pencil size={15} />
       </IconBtn>
-      <IconBtn
-        compact={compact}
-        title={`Set ${j.priority === "High" ? "medium" : "high"} priority`}
-        onClick={() => onPriority(j)}
-      >
-        <Tag
-          size={15}
-          className={j.priority === "High" ? "fill-current" : ""}
-        />
+      <IconBtn title="Print Label Sheet" onClick={() => handlePrintLabel(j.id)}>
+        <Tag size={15} />
       </IconBtn>
-      <IconBtn
+      {/* <IconBtn
         compact={compact}
         title="WhatsApp"
         tone="green"
         onClick={() => openWhatsApp(j)}
       >
         <MessageCircle size={16} />
-      </IconBtn>
+      </IconBtn> */}
       <IconBtn
         compact={compact}
         title="Print label"

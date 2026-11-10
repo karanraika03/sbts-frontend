@@ -118,3 +118,12 @@ export const toggleFavouriteCustomerFromJob = async (id, customerId) => {
 
   return response.data;
 };
+
+export const printLabelSheet = async (id) => {
+  const response = await http.get(`/api/DocumentPrint/print-label-sheet`, {
+    params: { id },
+    responseType: "blob",
+  });
+
+  return response.data;
+};
