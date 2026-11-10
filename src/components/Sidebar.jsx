@@ -10,6 +10,8 @@ import {
   ChevronDown,
   ShieldCheck,
   LogOut,
+  Settings,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -17,6 +19,16 @@ const mainLinks = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
   { label: "Jobs", path: "/jobs", icon: Wrench, count: "47" },
   { label: "Customers", path: "/customers", icon: Users },
+  {
+    label: "Master Setup",
+    path: "/master-setup",
+    icon: Settings,
+  },
+  {
+    label: "Master Setting",
+    path: "/master-setting",
+    icon: SlidersHorizontal,
+  },
   { label: "WhatsApp", path: "/whatsapp", icon: MessageCircle },
 ];
 function LinkGroup({ title, links, onNavigate }) {

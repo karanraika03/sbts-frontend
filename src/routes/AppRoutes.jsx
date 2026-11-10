@@ -27,6 +27,8 @@ import Customer from "../pages/customer/Customers";
 import Jobs from "../pages/jobs/Jobs";
 import NewJobs from "../pages/jobs/NewJobs";
 import Inventory from "../pages/partsandinventory/Inventory";
+import MasterSetup from "../pages/master/mastersetup/MasterSetup";
+import MasterDetails from "../pages/master/masterdetails/MasterDetails";
 import Placeholder from "../pages/Placeholder";
 import Login from "../pages/auth/Login";
 import WhatsApp from "../pages/whatsapp/WhatsApp";
@@ -38,6 +40,8 @@ const pageInfo = {
   "/jobs-new": "New Job",
   "/customers": "Customers",
   "/customers/new": "Add Customer",
+  "/master-setup": "Master Setup",
+  "/master-setting": "Master Details",
   "/whatsapp": "WhatsApp",
   "/inventory": "Parts & Inventory",
   "/billing": "Billing & Invoices",
@@ -140,6 +144,8 @@ function Shell() {
 
             <Route path="/customers/new" element={<Customer />} />
             <Route path="/customers/:customerId/edit" element={<Customer />} />
+            <Route path="/master-setup" element={<MasterSetup />} />
+            <Route path="/master-setting" element={<MasterDetails />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/whatsapp" element={<WhatsApp />} />
             <Route
