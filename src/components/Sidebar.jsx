@@ -5,12 +5,6 @@ import {
   Wrench,
   Users,
   MessageCircle,
-  Cpu,
-  BarChart3,
-  Settings,
-  ReceiptText,
-  Wallet,
-  HardHat,
   Laptop,
   X,
   ChevronDown,
@@ -25,15 +19,6 @@ const mainLinks = [
   { label: "Customers", path: "/customers", icon: Users },
   { label: "WhatsApp", path: "/whatsapp", icon: MessageCircle },
 ];
-const businessLinks = [
-  { label: "Parts & Inventory", path: "/inventory", icon: Cpu },
-  { label: "Billing & Invoices", path: "/billing", icon: ReceiptText },
-  { label: "Expenses", path: "/expenses", icon: Wallet },
-  { label: "Technicians", path: "/technicians", icon: HardHat },
-  { label: "Reports", path: "/reports", icon: BarChart3 },
-  { label: "Settings", path: "/settings", icon: Settings },
-];
-
 function LinkGroup({ title, links, onNavigate }) {
   return (
     <div className="mb-6">
@@ -113,11 +98,6 @@ export default function Sidebar({ open, onClose }) {
 
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <LinkGroup title="Workspace" links={mainLinks} onNavigate={onClose} />
-          <LinkGroup
-            title="Shop Management"
-            links={businessLinks}
-            onNavigate={onClose}
-          />
         </div>
 
         <div className="mt-4">

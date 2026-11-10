@@ -26,6 +26,8 @@ import {
   deleteJob,
   toggleFavouriteCustomerFromJob,
   printLabelSheet,
+  getProductTypes,
+  getCustomerDropdown,
 } from "../../services/JobService";
 
 import { useToast } from "../../context/ToastContext";
@@ -101,24 +103,6 @@ const getJobFilterOptions = (jobs) => ({
         job.status ?? job.statusId,
         job.statusN ?? job.statusName ?? job.statusLabel,
         "Status",
-      ),
-    )
-    .filter(Boolean),
-  customer: jobs
-    .map((job) =>
-      makeFilterOption(
-        job.customerId,
-        job.customer ?? job.customerName,
-        "Customer",
-      ),
-    )
-    .filter(Boolean),
-  product: jobs
-    .map((job) =>
-      makeFilterOption(
-        job.productId ?? job.productTypeId,
-        job.productName ?? job.productTypeName,
-        "Product",
       ),
     )
     .filter(Boolean),
@@ -343,15 +327,88 @@ export default function Jobs() {
   const [customerIdFilter, setCustomerIdFilter] = useState("");
   const [productIdFilter, setProductIdFilter] = useState("");
   const [staffIdFilter, setStaffIdFilter] = useState("");
-  const [filterOptions, setFilterOptions] = useState({
-    status: [],
-    customer: [],
-    product: [],
-    staff: [],
-  });
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [customerOptionsError, setCustomerOptionsError] = useState("");
+  const [productOptions, setProductOptions] = useState([]);
+  const [productOptionsError, setProductOptionsError] = useState("");
+  const [filterOptions, setFilterOptions] = useState({ status: [], staff: [] });
   const [jobToDelete, setJobToDelete] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchCustomerOptions = async () => {
+      setCustomerOptionsError("");
+      try {
+        const response = await getCustomerDropdown();
+        if (!Array.isArray(response)) {
+          throw new Error("Customer dropdown response is not an array.");
+        }
+
+        const options = response.map(({ id, name }) => ({
+          value: String(id),
+          label: String(name),
+        }));
+
+        if (active) setCustomerOptions(options);
+      } catch (error) {
+        console.error("Get Customer Dropdown API Error:", error);
+        if (active) {
+          setCustomerOptions([]);
+          setCustomerOptionsError(
+            error.response?.data?.message ||
+              error.response?.data?.title ||
+              error.message ||
+              "Unable to load customers.",
+          );
+        }
+      }
+    };
+
+    fetchCustomerOptions();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchProductOptions = async () => {
+      setProductOptionsError("");
+      try {
+        const response = await getProductTypes();
+        if (!Array.isArray(response)) {
+          throw new Error("Product types response is not an array.");
+        }
+
+        const options = response.map(({ id, name }) => ({
+          value: String(id),
+          label: String(name),
+        }));
+
+        if (active) setProductOptions(options);
+      } catch (error) {
+        console.error("Get Product Types API Error:", error);
+        if (active) {
+          setProductOptions([]);
+          setProductOptionsError(
+            error.response?.data?.message ||
+              error.response?.data?.title ||
+              error.message ||
+              "Unable to load product types.",
+          );
+        }
+      }
+    };
+
+    fetchProductOptions();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -393,8 +450,6 @@ export default function Jobs() {
           const options = getJobFilterOptions(response.data);
           setFilterOptions((current) => ({
             status: mergeFilterOptions(current.status, options.status),
-            customer: mergeFilterOptions(current.customer, options.customer),
-            product: mergeFilterOptions(current.product, options.product),
             staff: mergeFilterOptions(current.staff, options.staff),
           }));
           setTotalPages(Math.max(1, Number(response.totalPages) || 1));
@@ -580,13 +635,15 @@ export default function Jobs() {
               label: "Customer",
               value: customerIdFilter,
               setValue: setCustomerIdFilter,
-              options: filterOptions.customer,
+              options: customerOptions,
+              error: customerOptionsError,
             },
             {
               label: "Product",
               value: productIdFilter,
               setValue: setProductIdFilter,
-              options: filterOptions.product,
+              options: productOptions,
+              error: productOptionsError,
             },
             {
               label: "Staff",
@@ -594,7 +651,7 @@ export default function Jobs() {
               setValue: setStaffIdFilter,
               options: filterOptions.staff,
             },
-          ].map(({ label, value, setValue, options }) => (
+          ].map(({ label, value, setValue, options, error }) => (
             <label key={label} className="block min-w-0">
               <span className="mb-1 block pl-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                 {label}
@@ -614,6 +671,11 @@ export default function Jobs() {
                   </option>
                 ))}
               </select>
+              {error && (
+                <span role="alert" className="mt-1 block text-[10px] text-red-600">
+                  {error}
+                </span>
+              )}
             </label>
           ))}
         </div>
