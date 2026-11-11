@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Wrench,
@@ -24,6 +24,8 @@ import {
   Cell,
 } from "recharts";
 import StatCard from "../../components/StatCard";
+
+import { getDashboardData } from "../../services/Dashboard";
 
 /* ---------- helpers ---------- */
 const rng = (seed) => () => {
@@ -326,6 +328,39 @@ export default function Dashboard() {
   const [onlyWith, setOnlyWith] = useState(false);
   const [reminded, setReminded] = useState({});
 
+  const [dashboardData, setDashboardData] = useState({
+    totalUsers: 0,
+    totalActiveUsers: 0,
+    totalDeactiveUsers: 0,
+    totalCustomers: 0,
+    totalFavouriteCustomers: 0,
+    totalActiveCustomers: 0,
+    totalDeactiveCustomers: 0,
+    totalPendingJobs: 0,
+    totalCompletedJobs: 0,
+    totalDeliverdJobs: 0,
+  });
+
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const response = await getDashboardData();
+
+        if (response?.success && response?.data) {
+          setDashboardData(response.data);
+        }
+      } catch (error) {
+        console.error("Dashboard API Error:", error);
+      } finally {
+        setDashboardLoading(false);
+      }
+    };
+
+    fetchDashboard();
+  }, []);
+
   const rev = revenueByRange[range];
   const m = METRICS.find((x) => x.key === metric);
   const today = new Date().toLocaleDateString("en-IN", {
@@ -381,7 +416,10 @@ export default function Dashboard() {
               className="min-w-0 w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
             />
           </div>
-          <button aria-label="Notifications" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-violet-100 bg-white text-slate-600 shadow-sm transition hover:bg-violet-50 lg:h-12 lg:w-12">
+          <button
+            aria-label="Notifications"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-violet-100 bg-white text-slate-600 shadow-sm transition hover:bg-violet-50 lg:h-12 lg:w-12"
+          >
             <Bell size={18} />
           </button>
           <button
@@ -396,34 +434,33 @@ export default function Dashboard() {
       {/* Stat cards */}
       <div className="dashboard-stagger grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
-          label="Open Jobs"
-          value="47"
-          note="more than last week"
-          change="+6"
+          label="Pending Jobs"
+          value={dashboardLoading ? "..." : dashboardData.totalPendingJobs}
+          note="Jobs awaiting completion"
           icon={Wrench}
           tone="violet"
         />
+
         <StatCard
-          label="Ready for Pickup"
-          value="9"
-          note="waiting over 7 days"
-          change="3"
+          label="Completed Jobs"
+          value={dashboardLoading ? "..." : dashboardData.totalCompletedJobs}
+          note="Successfully completed"
           icon={CheckCircle2}
           tone="green"
         />
+
         <StatCard
-          label="Overdue Jobs"
-          value="6"
-          note="fewer than last week"
-          change="-2"
+          label="Delivered Jobs"
+          value={dashboardLoading ? "..." : dashboardData.totalDeliverdJobs}
+          note="Jobs delivered to customers"
           icon={Clock3}
           tone="red"
         />
+
         <StatCard
-          label="Collected Today"
-          value="₹14,800"
-          note="vs yesterday"
-          change="+18%"
+          label="Total Customers"
+          value={dashboardLoading ? "..." : dashboardData.totalCustomers}
+          note={`${dashboardData.totalFavouriteCustomers} favourite customers`}
           icon={IndianRupee}
           tone="violet"
         />
@@ -545,9 +582,7 @@ export default function Dashboard() {
         <section className="dashboard-card rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
-                Statistics
-              </h3>
+              <h3 className="text-lg font-bold text-slate-900">Statistics</h3>
               <p className="mt-1 text-sm text-slate-500">Open jobs by stage</p>
             </div>
             <button
@@ -790,11 +825,12 @@ export default function Dashboard() {
                 { l: "Sales", v: "1,329" },
                 { l: "Revenue", v: "₹29.7 L" },
               ].map((s) => (
-                <div key={s.l} className="dashboard-card rounded-xl bg-[#f7f5fd] p-4">
+                <div
+                  key={s.l}
+                  className="dashboard-card rounded-xl bg-[#f7f5fd] p-4"
+                >
                   <p className="text-xs text-slate-500">{s.l}</p>
-                  <p className="mt-1 text-xl font-bold text-slate-900">
-                    {s.v}
-                  </p>
+                  <p className="mt-1 text-xl font-bold text-slate-900">{s.v}</p>
                 </div>
               ))}
             </div>
@@ -805,9 +841,7 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-5 flex items-center justify-between">
-              <h4 className="text-sm font-bold text-slate-900">
-                All villages
-              </h4>
+              <h4 className="text-sm font-bold text-slate-900">All villages</h4>
               <span className="text-xs text-slate-500">
                 {list.length} shown, by {m.label.toLowerCase()}
               </span>
@@ -926,7 +960,9 @@ export default function Dashboard() {
                   {a.id}
                 </span>
                 <div className="min-w-0 sm:flex-1">
-                  <p className="text-xs font-bold leading-4 text-slate-900 sm:text-sm">{a.name}</p>
+                  <p className="text-xs font-bold leading-4 text-slate-900 sm:text-sm">
+                    {a.name}
+                  </p>
                   <p className="mt-0.5 text-xs leading-4 text-red-700 sm:text-sm">
                     Waiting {a.days} days
                   </p>

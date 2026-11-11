@@ -39,18 +39,30 @@ const initialForm = {
 };
 
 const inputClass =
-  "h-11 w-full rounded-xl border border-violet-100 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-violet-300 focus:ring-4 focus:ring-violet-100";
+  "h-11 w-full rounded-xl border border-violet-100 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-violet-200 focus:border-violet-300 focus:ring-4 focus:ring-violet-100";
 
-function Field({ label, required, error, children, className = "" }) {
+/* stagger helper: delay in ms */
+const dly = (ms) => ({ animationDelay: `${ms}ms` });
+
+function Field({
+  label,
+  required,
+  error,
+  children,
+  className = "",
+  delay = 0,
+}) {
   return (
-    <label className={`block min-w-0 ${className}`}>
+    <label style={dly(delay)} className={`cm-up block min-w-0 ${className}`}>
       <span className="mb-1.5 block text-xs font-bold text-slate-600">
         {label}
         {required && <span className="ml-0.5 text-red-500">*</span>}
       </span>
       {children}
       {error && (
-        <span className="mt-1 block text-[11px] text-red-500">{error}</span>
+        <span className="cm-err mt-1 block text-[11px] text-red-500">
+          {error}
+        </span>
       )}
     </label>
   );
@@ -302,9 +314,7 @@ export default function Customer() {
           address: customer.address ?? customer.Address ?? "",
           landMark: customer.landMark ?? customer.LandMark ?? "",
           stateId: String(customer.stateId ?? customer.StateId ?? ""),
-          districtId: String(
-            customer.districtId ?? customer.DistrictId ?? "",
-          ),
+          districtId: String(customer.districtId ?? customer.DistrictId ?? ""),
           cityId: String(customer.cityId ?? customer.CityId ?? ""),
           isActive:
             (customer.isActive ?? customer.IsActive) === true ||
@@ -408,11 +418,27 @@ export default function Customer() {
 
   return (
     <div className="customer-motion w-full min-w-0">
-      <header className="mb-6 flex items-center gap-3">
+      <style>{`
+        @keyframes cmDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+        @keyframes cmUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+        @keyframes cmZoom { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+        @keyframes cmPop { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+        @keyframes cmShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+        .cm-down { animation: cmDown .45s cubic-bezier(.2,.8,.2,1) backwards; }
+        .cm-up { animation: cmUp .5s cubic-bezier(.2,.8,.2,1) backwards; }
+        .cm-zoom { animation: cmZoom .55s cubic-bezier(.34,1.56,.64,1) backwards; }
+        .cm-pop { animation: cmPop .3s cubic-bezier(.34,1.56,.64,1) backwards; }
+        .cm-err { animation: cmShake .35s ease-in-out; }
+        @media (prefers-reduced-motion: reduce) {
+          .cm-down, .cm-up, .cm-zoom, .cm-pop, .cm-err { animation: none; }
+        }
+      `}</style>
+
+      <header className="cm-down mb-6 flex items-center gap-3">
         <button
           type="button"
           onClick={() => navigate("/customers")}
-          className="shrink-0 rounded-full border border-violet-200 p-2 text-violet-600 hover:bg-violet-50"
+          className="shrink-0 rounded-full border border-violet-200 p-2 text-violet-600 transition duration-200 hover:-translate-x-0.5 hover:bg-violet-50 active:scale-90"
         >
           <ArrowLeft size={18} />
         </button>
@@ -431,7 +457,10 @@ export default function Customer() {
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
         {/* Personal info */}
-        <section className="rounded-[18px] border border-violet-100 bg-white p-4 shadow-sm sm:rounded-[22px] sm:p-6">
+        <section
+          style={dly(100)}
+          className="cm-up rounded-[18px] border border-violet-100 bg-white p-4 shadow-sm transition duration-300 hover:shadow-md sm:rounded-[22px] sm:p-6"
+        >
           <SectionTitle
             title="Personal info"
             subtitle="Basic details of the customer."
@@ -440,12 +469,16 @@ export default function Customer() {
           <div className="flex flex-col gap-5 sm:flex-row">
             {/* Photo */}
             <div className="flex shrink-0 flex-col items-center gap-2 sm:w-36">
-              <div className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-violet-200 bg-violet-50 text-violet-400">
+              <div
+                style={dly(220)}
+                className="cm-zoom relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-violet-200 bg-violet-50 text-violet-400 transition duration-300 hover:scale-105 hover:border-violet-400"
+              >
                 {imagePreview ? (
                   <img
+                    key={imagePreview}
                     src={imagePreview}
                     alt="Customer preview"
-                    className="h-full w-full object-cover"
+                    className="cm-pop h-full w-full object-cover"
                   />
                 ) : (
                   <Upload size={26} />
@@ -453,7 +486,7 @@ export default function Customer() {
               </div>
 
               <div className="flex items-center gap-2">
-                <label className="cursor-pointer rounded-full border border-violet-200 px-3 py-1.5 text-[11px] font-bold text-violet-700 transition hover:bg-violet-50">
+                <label className="cursor-pointer rounded-full border border-violet-200 px-3 py-1.5 text-[11px] font-bold text-violet-700 transition duration-200 hover:-translate-y-0.5 hover:bg-violet-50 active:scale-95">
                   {image ? "Change" : "Upload photo"}
                   <input
                     type="file"
@@ -466,7 +499,7 @@ export default function Customer() {
                   <button
                     type="button"
                     onClick={() => setImage(null)}
-                    className="rounded-full border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50"
+                    className="cm-pop rounded-full border border-slate-200 p-1.5 text-slate-500 transition duration-200 hover:rotate-90 hover:bg-slate-50 active:scale-90"
                     title="Remove photo"
                   >
                     <X size={13} />
@@ -474,7 +507,7 @@ export default function Customer() {
                 )}
               </div>
               {errors.image && (
-                <span className="text-center text-[11px] text-red-500">
+                <span className="cm-err text-center text-[11px] text-red-500">
                   {errors.image}
                 </span>
               )}
@@ -482,7 +515,7 @@ export default function Customer() {
 
             {/* Fields */}
             <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Full name" required error={errors.name}>
+              <Field label="Full name" required error={errors.name} delay={200}>
                 <input
                   value={form.name}
                   onChange={handleChange("name")}
@@ -491,7 +524,12 @@ export default function Customer() {
                 />
               </Field>
 
-              <Field label="Gender" required error={errors.genderId}>
+              <Field
+                label="Gender"
+                required
+                error={errors.genderId}
+                delay={260}
+              >
                 <select
                   value={form.genderId}
                   onChange={handleChange("genderId")}
@@ -504,7 +542,7 @@ export default function Customer() {
                   )}
                 </select>
                 {genderError && (
-                  <span className="mt-1 flex items-center justify-between gap-2 text-[11px] text-red-500">
+                  <span className="cm-err mt-1 flex items-center justify-between gap-2 text-[11px] text-red-500">
                     <span>{genderError}</span>
                     <button
                       type="button"
@@ -518,7 +556,7 @@ export default function Customer() {
                 )}
               </Field>
 
-              <Field label="Email" error={errors.email}>
+              <Field label="Email" error={errors.email} delay={320}>
                 <input
                   type="email"
                   value={form.email}
@@ -528,7 +566,12 @@ export default function Customer() {
                 />
               </Field>
 
-              <Field label="WhatsApp number" required error={errors.whatsAppMobileNo}>
+              <Field
+                label="WhatsApp number"
+                required
+                error={errors.whatsAppMobileNo}
+                delay={380}
+              >
                 <input
                   type="tel"
                   inputMode="numeric"
@@ -540,7 +583,12 @@ export default function Customer() {
               </Field>
 
               <div className="md:col-span-2">
-                <Field label="Mobile number" required error={errors.mobileNo}>
+                <Field
+                  label="Mobile number"
+                  required
+                  error={errors.mobileNo}
+                  delay={440}
+                >
                   <input
                     type="tel"
                     inputMode="numeric"
@@ -556,7 +604,10 @@ export default function Customer() {
         </section>
 
         {/* Address info */}
-        <section className="rounded-[18px] border border-violet-100 bg-white p-4 shadow-sm sm:rounded-[22px] sm:p-6">
+        <section
+          style={dly(220)}
+          className="cm-up rounded-[18px] border border-violet-100 bg-white p-4 shadow-sm transition duration-300 hover:shadow-md sm:rounded-[22px] sm:p-6"
+        >
           <SectionTitle
             title="Address info"
             subtitle="Where the customer lives."
@@ -568,17 +619,18 @@ export default function Customer() {
               required
               error={errors.address}
               className="md:col-span-2"
+              delay={360}
             >
               <textarea
                 rows={3}
                 value={form.address}
                 onChange={handleChange("address")}
                 placeholder="House no., street, area"
-                className="w-full resize-none rounded-xl border border-violet-100 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
+                className="w-full resize-none rounded-xl border border-violet-100 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-violet-200 focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
               />
             </Field>
 
-            <Field label="Landmark" className="md:col-span-2">
+            <Field label="Landmark" className="md:col-span-2" delay={420}>
               <input
                 value={form.landMark}
                 onChange={handleChange("landMark")}
@@ -614,7 +666,7 @@ export default function Customer() {
               )}
             </Field> */}
 
-            <Field label="District">
+            <Field label="District" delay={480}>
               <select
                 value={form.districtId}
                 onChange={handleChange("districtId")}
@@ -627,7 +679,7 @@ export default function Customer() {
                 )}
               </select>
               {districtError && (
-                <span className="mt-1 flex items-center justify-between gap-2 text-[11px] text-red-500">
+                <span className="cm-err mt-1 flex items-center justify-between gap-2 text-[11px] text-red-500">
                   <span>{districtError}</span>
                   <button
                     type="button"
@@ -641,13 +693,11 @@ export default function Customer() {
               )}
             </Field>
 
-            <Field label="City / Village">
+            <Field label="City / Village" delay={540}>
               <select
                 value={form.cityId}
                 onChange={handleChange("cityId")}
-                disabled={
-                  !form.districtId || cityLoading || Boolean(cityError)
-                }
+                disabled={!form.districtId || cityLoading || Boolean(cityError)}
                 className={inputClass}
               >
                 {renderOptions(
@@ -656,7 +706,7 @@ export default function Customer() {
                 )}
               </select>
               {cityError && (
-                <span className="mt-1 flex items-center justify-between gap-2 text-[11px] text-red-500">
+                <span className="cm-err mt-1 flex items-center justify-between gap-2 text-[11px] text-red-500">
                   <span>{cityError}</span>
                   <button
                     type="button"
@@ -670,12 +720,18 @@ export default function Customer() {
               )}
             </Field>
 
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-violet-100 bg-violet-50/50 px-4 py-3 md:col-span-2">
+            <div
+              style={dly(600)}
+              className="cm-up flex items-center justify-between gap-4 rounded-xl border border-violet-100 bg-violet-50/50 px-4 py-3 transition-colors hover:bg-violet-50 md:col-span-2"
+            >
               <div>
                 <p className="text-xs font-bold text-slate-700">
                   Customer status
                 </p>
-                <p className="mt-0.5 text-[11px] text-slate-500">
+                <p
+                  key={String(form.isActive)}
+                  className="cm-pop mt-0.5 text-[11px] text-slate-500"
+                >
                   {form.isActive
                     ? "Customer is active"
                     : "Customer is inactive"}
@@ -692,12 +748,12 @@ export default function Customer() {
                     isActive: !prev.isActive,
                   }))
                 }
-                className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-4 focus:ring-violet-100 ${
+                className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-300 active:scale-90 focus:outline-none focus:ring-4 focus:ring-violet-100 ${
                   form.isActive ? "bg-emerald-500" : "bg-slate-300"
                 }`}
               >
                 <span
-                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-300 ${
                     form.isActive ? "translate-x-6" : "translate-x-1"
                   }`}
                 />
@@ -707,25 +763,28 @@ export default function Customer() {
         </section>
 
         {apiError && (
-          <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+          <p className="cm-err rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
             {apiError}
           </p>
         )}
 
         {/* Actions */}
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <div
+          style={dly(660)}
+          className="cm-up flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+        >
           <button
             type="button"
             onClick={handleReset}
             disabled={submitting}
-            className="inline-flex items-center justify-center rounded-full border border-violet-200 px-6 py-3 text-sm font-bold text-violet-700 transition hover:bg-violet-50 disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-full border border-violet-200 px-6 py-3 text-sm font-bold text-violet-700 transition duration-200 hover:-translate-y-0.5 hover:bg-violet-50 active:scale-95 disabled:opacity-50 disabled:hover:translate-y-0"
           >
             Reset
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-violet-200 transition duration-200 hover:-translate-y-0.5 hover:bg-violet-700 hover:shadow-xl active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
           >
             {submitting && <Loader2 size={16} className="animate-spin" />}
             {submitting

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -14,6 +14,8 @@ import {
   X,
   Loader2,
   RefreshCw,
+  ShieldCheck,
+  CheckCircle2,
 } from "lucide-react";
 import PageHeader from "../../components/PageHeader";
 import StatusBadge from "../../components/StatusBadge";
@@ -21,12 +23,17 @@ import ConfirmDialog from "../../components/ConfirmDialog";
 import MassageBtn from "../../components/MassageBtn";
 import {
   getJobList,
+  getJobById,
   deleteJob,
   toggleFavouriteCustomerFromJob,
   printLabelSheet,
   printJobSheet,
   getProductTypes,
   getCustomerDropdown,
+  verifyJobCode,
+  getClosingStatus,
+  updateJobStatus,
+  getAllJobStatus,
 } from "../../services/JobService";
 
 import { useToast } from "../../context/ToastContext";
@@ -56,25 +63,43 @@ const formatJobDate = (value) => {
   });
 };
 
-const normalizeJob = (item) => ({
-  id: item.id,
-  srNo: item.srNo ?? item.id,
-  customerId: item.customerId,
-  customer: item.customer ?? "—",
-  code: "",
-  phone: item.mobileNo ?? "",
-  device: item.productName ?? "—",
-  issue: item.productDetail ?? "—",
-  status: String(item.statusN ?? "—"),
-  statusId: item.status,
-  priority: item.priority ?? "—",
-  amount: item.totalEstimatedCost ?? 0,
-  advance: item.advance ?? 0,
-  balance: item.balance ?? 0,
-  date: formatJobDate(item.deliveryDate),
-  dueNote: "",
-  isFavourite: item.isFavourite === true || item.isFavourite === 1,
-});
+const normalizeJob = (item, fallback = {}) => {
+  const status =
+    item.statusN ??
+    item.statusName ??
+    (typeof item.status === "string" && !/^\d+$/.test(item.status)
+      ? item.status
+      : fallback.status);
+  const deliveryDate = item.deliveryDate ?? item.dateOfDelivery;
+
+  return {
+    id: item.id ?? fallback.id,
+    srNo: item.srNo ?? item.id ?? fallback.srNo,
+    customerId: item.customerId ?? fallback.customerId,
+    customer: item.customer ?? item.customerName ?? fallback.customer ?? "—",
+    code: item.customerCode ?? item.userName ?? fallback.code ?? "",
+    phone: item.mobileNo ?? item.phone ?? fallback.phone ?? "",
+    device:
+      item.productName ??
+      item.productTypeName ??
+      item.productCompany ??
+      fallback.device ??
+      "—",
+    issue: item.productDetail ?? item.technicalProblem ?? fallback.issue ?? "—",
+    status: String(status ?? "—"),
+    statusId: item.status ?? fallback.statusId,
+    priority: item.priority ?? item.priorityName ?? fallback.priority ?? "—",
+    amount: item.totalEstimatedCost ?? fallback.amount ?? 0,
+    advance: item.advance ?? fallback.advance ?? 0,
+    balance: item.balance ?? fallback.balance ?? 0,
+    date: deliveryDate ? formatJobDate(deliveryDate) : (fallback.date ?? "—"),
+    dueNote: fallback.dueNote ?? "",
+    isFavourite:
+      item.isFavourite == null
+        ? (fallback.isFavourite ?? false)
+        : item.isFavourite === true || item.isFavourite === 1,
+  };
+};
 
 const makeFilterOption = (id, label, fallback) => {
   if (id == null || String(id).trim() === "") return null;
@@ -178,10 +203,44 @@ function IconBtn({
   );
 }
 
+const printPdfBlob = (pdfBlob) =>
+  new Promise((resolve) => {
+    const url = window.URL.createObjectURL(
+      new Blob([pdfBlob], { type: "application/pdf" }),
+    );
+
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText =
+      "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+    iframe.src = url;
+
+    const cleanup = () => {
+      setTimeout(() => {
+        iframe.remove();
+        window.URL.revokeObjectURL(url);
+      }, 60000);
+    };
+
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (err) {
+        // fallback: print na chale toh PDF new tab me khol do
+        window.open(url, "_blank");
+      }
+      cleanup();
+      resolve();
+    };
+
+    document.body.appendChild(iframe);
+  });
+
 function Actions({
   j,
   onOpen,
   onEdit,
+  onVerify,
   onPriority,
   onFavorite,
   onDelete,
@@ -193,51 +252,20 @@ function Actions({
   const handlePrintLabel = async (id) => {
     try {
       const pdfBlob = await printLabelSheet(id);
-
-      const file = new Blob([pdfBlob], {
-        type: "application/pdf",
-      });
-
-      const url = window.URL.createObjectURL(file);
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "LabelSheet.pdf";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-
-      window.URL.revokeObjectURL(url);
-
-      showToast("Label sheet downloaded successfully.");
+      await printPdfBlob(pdfBlob);
     } catch (error) {
       console.error("Print Label Error:", error);
-      showToast("Unable to download label sheet.");
+      showToast("Unable to print label sheet.");
     }
   };
 
   const handlePrintJobSheet = async (id) => {
     try {
       const pdfBlob = await printJobSheet(id);
-
-      const url = window.URL.createObjectURL(
-        new Blob([pdfBlob], { type: "application/pdf" }),
-      );
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `JobSheet-${id}.pdf`;
-
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-
-      window.URL.revokeObjectURL(url);
-
-      showToast("Job sheet downloaded successfully.");
+      await printPdfBlob(pdfBlob);
     } catch (error) {
       console.error("Print Job Sheet Error:", error);
-      showToast("Unable to download job sheet.");
+      showToast("Unable to print job sheet.");
     }
   };
 
@@ -277,6 +305,15 @@ function Actions({
       <IconBtn compact={compact} title="Edit job" onClick={() => onEdit(j)}>
         <Pencil size={15} />
       </IconBtn>
+      {!s(j).startsWith("deliver") && (
+        <IconBtn
+          compact={compact}
+          title="Verify job code"
+          onClick={() => onVerify(j)}
+        >
+          <ShieldCheck size={15} />
+        </IconBtn>
+      )}
       <IconBtn title="Print Label Sheet" onClick={() => handlePrintLabel(j.id)}>
         <Tag size={15} />
       </IconBtn>
@@ -324,12 +361,28 @@ const dueClass = (j) =>
 /* ---------- page ---------- */
 export default function Jobs() {
   const navigate = useNavigate();
+  const showToast = useToast();
   const [jobsList, setJobsList] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(true);
   const [jobsError, setJobsError] = useState("");
   const [jobsRetry, setJobsRetry] = useState(0);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
+  const detailsControllerRef = useRef(null);
+  const [verificationJob, setVerificationJob] = useState(null);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [verificationError, setVerificationError] = useState("");
+  const [codeVerified, setCodeVerified] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState("");
+  const [closingStatuses, setClosingStatuses] = useState([]);
+  const [closingStatusesLoading, setClosingStatusesLoading] = useState(false);
+  const [closingStatusesError, setClosingStatusesError] = useState("");
+  const [closingStatusesRetry, setClosingStatusesRetry] = useState(0);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const verificationRequestRef = useRef(0);
   const [editing, setEditing] = useState(false);
   const [favorites, setFavorites] = useState(() => new Set());
   const [pageSize, setPageSize] = useState(10);
@@ -343,10 +396,64 @@ export default function Jobs() {
   const [customerOptionsError, setCustomerOptionsError] = useState("");
   const [productOptions, setProductOptions] = useState([]);
   const [productOptionsError, setProductOptionsError] = useState("");
+  const [statusOptions, setStatusOptions] = useState([]);
+  const [statusOptionsLoading, setStatusOptionsLoading] = useState(true);
+  const [statusOptionsError, setStatusOptionsError] = useState("");
+  const [statusOptionsRetry, setStatusOptionsRetry] = useState(0);
   const [filterOptions, setFilterOptions] = useState({ status: [], staff: [] });
   const [jobToDelete, setJobToDelete] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchStatusOptions = async () => {
+      setStatusOptionsLoading(true);
+      setStatusOptionsError("");
+      try {
+        const response = await getAllJobStatus();
+        if (response?.success !== true || !Array.isArray(response.data)) {
+          throw new Error(
+            response?.message || "Unexpected job status response.",
+          );
+        }
+
+        const options = response.data
+          .map((item) =>
+            makeFilterOption(
+              item.id ?? item.statusId ?? item.value,
+              item.name ?? item.statusName ?? item.statusN ?? item.label,
+              "Status",
+            ),
+          )
+          .filter(Boolean);
+
+        if (active) setStatusOptions(options);
+      } catch (error) {
+        console.error(
+          "Get All Job Status API Error:",
+          error.response?.data || error,
+        );
+        if (active) {
+          setStatusOptions([]);
+          setStatusOptionsError(
+            error.response?.data?.message ||
+              error.response?.data?.title ||
+              error.message ||
+              "Unable to load job statuses.",
+          );
+        }
+      } finally {
+        if (active) setStatusOptionsLoading(false);
+      }
+    };
+
+    fetchStatusOptions();
+    return () => {
+      active = false;
+    };
+  }, [statusOptionsRetry]);
 
   useEffect(() => {
     let active = true;
@@ -509,6 +616,61 @@ export default function Jobs() {
     return updated;
   };
 
+  // const openJobDetails = async (job) => {
+  //   detailsControllerRef.current?.abort();
+  //   const controller = new AbortController();
+  //   detailsControllerRef.current = controller;
+  //   setSelected(job);
+  //   setDetailsLoading(true);
+  //   setDetailsError("");
+
+  //   try {
+  //     const response = await getJobById(job.id, {
+  //       signal: controller.signal,
+  //     });
+  //     if (controller.signal.aborted) return;
+  //     if (response?.success !== true || !response.data) {
+  //       throw new Error(response?.message || "Unable to load job details.");
+  //     }
+
+  //     setSelected(normalizeJob(response.data, job));
+  //   } catch (error) {
+  //     if (controller.signal.aborted) return;
+  //     console.error("Get Job Detail API Error:", error.response?.data || error);
+  //     setDetailsError(
+  //       error.response?.data?.message ||
+  //         error.response?.data?.title ||
+  //         error.message ||
+  //         "Unable to load job details. Please try again.",
+  //     );
+  //   } finally {
+  //     if (!controller.signal.aborted) {
+  //       setDetailsLoading(false);
+  //       detailsControllerRef.current = null;
+  //     }
+  //   }
+  // };
+
+  const openJobDetails = (job) => {
+    navigate(`/jobs/${encodeURIComponent(job.id)}`);
+  };
+
+  // const closeJobDetails = () => {
+  //   detailsControllerRef.current?.abort();
+  //   detailsControllerRef.current = null;
+  //   setSelected(null);
+  //   setDetailsLoading(false);
+  //   setDetailsError("");
+  //   setEditing(false);
+  // };
+
+  // useEffect(
+  //   () => () => {
+  //     detailsControllerRef.current?.abort();
+  //   },
+  //   [],
+  // );
+
   const editJob = (job) => {
     navigate(`/jobs-new?jobId=${encodeURIComponent(job.id)}`);
   };
@@ -565,6 +727,204 @@ export default function Jobs() {
       else next.add(job.id);
       return next;
     });
+  };
+
+  const openVerification = (job) => {
+    verificationRequestRef.current += 1;
+    setVerificationJob(job);
+    setVerificationCode("");
+    setVerificationError("");
+    setCodeVerified(false);
+    setVerificationStatus("");
+    setVerificationLoading(false);
+    setClosingStatuses([]);
+    setClosingStatusesLoading(true);
+    setClosingStatusesError("");
+  };
+
+  const closeVerification = () => {
+    if (verificationLoading || statusUpdating) return;
+    verificationRequestRef.current += 1;
+    setVerificationJob(null);
+    setVerificationCode("");
+    setVerificationError("");
+    setCodeVerified(false);
+    setVerificationStatus("");
+    setVerificationLoading(false);
+    setClosingStatusesLoading(false);
+  };
+
+  useEffect(() => {
+    if (!verificationJob) {
+      setClosingStatuses([]);
+      setClosingStatusesError("");
+      return undefined;
+    }
+
+    let active = true;
+    const loadClosingStatuses = async () => {
+      setClosingStatusesLoading(true);
+      setClosingStatusesError("");
+
+      try {
+        const response = await getClosingStatus();
+        if (response?.success !== true) {
+          throw new Error(
+            response?.message || "Unable to load closing statuses.",
+          );
+        }
+
+        const rows = Array.isArray(response.data) ? response.data : null;
+        if (!rows) {
+          throw new Error("Closing status response is not a list.");
+        }
+
+        const options = rows
+          .map((item) => ({
+            value: item.id ?? item.statusId ?? item.value,
+            label:
+              item.name ?? item.statusName ?? item.statusN ?? item.label ?? "",
+          }))
+          .filter(
+            (option) =>
+              option.value != null && String(option.label).trim() !== "",
+          );
+        if (options.length === 0) {
+          throw new Error("No closing statuses are available.");
+        }
+        if (active) setClosingStatuses(options);
+      } catch (error) {
+        console.error(
+          "Get Closing Status API Error:",
+          error.response?.data || error,
+        );
+        if (active) {
+          setClosingStatuses([]);
+          setClosingStatusesError(
+            error.response?.data?.message ||
+              error.response?.data?.title ||
+              error.message ||
+              "Unable to load closing statuses.",
+          );
+        }
+      } finally {
+        if (active) setClosingStatusesLoading(false);
+      }
+    };
+
+    loadClosingStatuses();
+    return () => {
+      active = false;
+    };
+  }, [verificationJob, closingStatusesRetry]);
+
+  useEffect(() => {
+    const code = verificationCode.trim();
+    if (!verificationJob || !code) return undefined;
+
+    const jobId = verificationJob.id;
+    const timer = setTimeout(async () => {
+      const requestId = ++verificationRequestRef.current;
+      setVerificationLoading(true);
+      setVerificationError("");
+
+      try {
+        const response = await verifyJobCode(jobId, code);
+        if (requestId !== verificationRequestRef.current) return;
+        if (response?.success !== true) {
+          throw new Error(response?.message || "Verification code is invalid.");
+        }
+        setCodeVerified(true);
+      } catch (error) {
+        if (requestId !== verificationRequestRef.current) return;
+        console.error(
+          "Verify Job Code API Error:",
+          error.response?.data || error,
+        );
+        setVerificationError(
+          error.response?.data?.message ||
+            error.response?.data?.title ||
+            error.message ||
+            "Unable to verify job code. Please try again.",
+        );
+      } finally {
+        if (requestId === verificationRequestRef.current) {
+          setVerificationLoading(false);
+        }
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      verificationRequestRef.current += 1;
+    };
+  }, [verificationCode, verificationJob]);
+
+  const handleStatusUpdate = async () => {
+    if (
+      !codeVerified ||
+      !verificationJob ||
+      !verificationStatus ||
+      statusUpdating
+    ) {
+      return;
+    }
+
+    const selectedStatus = closingStatuses.find(
+      (option) => String(option.value) === String(verificationStatus),
+    );
+    if (!selectedStatus) {
+      setClosingStatusesError("Select a valid closing status.");
+      return;
+    }
+
+    try {
+      setStatusUpdating(true);
+      const response = await updateJobStatus(
+        verificationJob.id,
+        selectedStatus.value,
+      );
+      const updateResult = response?.success;
+      if (
+        updateResult !== true &&
+        updateResult?.result !== true &&
+        updateResult?.isCompletedSuccessfully !== true
+      ) {
+        throw new Error(
+          response?.message ||
+            updateResult?.exception ||
+            "Unable to update job status.",
+        );
+      }
+
+      setJobsList((current) =>
+        current.map((job) =>
+          job.id === verificationJob.id
+            ? {
+                ...job,
+                status: selectedStatus.label,
+                statusId: selectedStatus.value,
+              }
+            : job,
+        ),
+      );
+      showToast("Job status updated successfully.");
+      setJobsRetry((attempt) => attempt + 1);
+      setVerificationJob(null);
+    } catch (error) {
+      console.error(
+        "Update Job Status API Error:",
+        error.response?.data || error,
+      );
+      setVerificationError(
+        error.response?.data?.message ||
+          error.response?.data?.title ||
+          error.message ||
+          "Unable to update job status. Please try again.",
+      );
+    } finally {
+      setStatusUpdating(false);
+    }
   };
 
   return (
@@ -627,7 +987,10 @@ export default function Jobs() {
               label: "Status",
               value: statusFilter,
               setValue: setStatusFilter,
-              options: filterOptions.status,
+              options: statusOptions,
+              error: statusOptionsError,
+              loading: statusOptionsLoading,
+              canRetry: true,
             },
             {
               label: "Customer",
@@ -635,6 +998,7 @@ export default function Jobs() {
               setValue: setCustomerIdFilter,
               options: customerOptions,
               error: customerOptionsError,
+              canRetry: false,
             },
             {
               label: "Product",
@@ -642,43 +1006,58 @@ export default function Jobs() {
               setValue: setProductIdFilter,
               options: productOptions,
               error: productOptionsError,
+              canRetry: false,
             },
             {
               label: "Staff",
               value: staffIdFilter,
               setValue: setStaffIdFilter,
               options: filterOptions.staff,
+              canRetry: false,
             },
-          ].map(({ label, value, setValue, options, error }) => (
-            <label key={label} className="block min-w-0">
-              <span className="mb-1 block pl-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                {label}
-              </span>
-              <select
-                value={value}
-                onChange={(event) => {
-                  setValue(event.target.value);
-                  setPageNumber(1);
-                }}
-                className="h-[46px] w-full rounded-2xl border border-violet-100 bg-white px-3.5 text-[13px] text-slate-600 shadow-sm outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
-              >
-                <option value="">All</option>
-                {options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label} (ID: {option.value})
-                  </option>
-                ))}
-              </select>
-              {error && (
-                <span
-                  role="alert"
-                  className="mt-1 block text-[10px] text-red-600"
-                >
-                  {error}
+          ].map(
+            ({ label, value, setValue, options, error, loading, canRetry }) => (
+              <label key={label} className="block min-w-0">
+                <span className="mb-1 block pl-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  {label}
                 </span>
-              )}
-            </label>
-          ))}
+                <select
+                  value={value}
+                  disabled={loading}
+                  onChange={(event) => {
+                    setValue(event.target.value);
+                    setPageNumber(1);
+                  }}
+                  className="h-[46px] w-full rounded-2xl border border-violet-100 bg-white px-3.5 text-[13px] text-slate-600 shadow-sm outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                >
+                  <option value="">
+                    {loading ? "Loading statuses..." : "All"}
+                  </option>
+                  {options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label} (ID: {option.value})
+                    </option>
+                  ))}
+                </select>
+                {error && (
+                  <span className="mt-1 flex items-center justify-between gap-2 text-[10px] text-red-600">
+                    <span role="alert">{error}</span>
+                    {canRetry && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStatusOptionsRetry((attempt) => attempt + 1)
+                        }
+                        className="shrink-0 font-bold text-violet-600 hover:text-violet-800"
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </span>
+                )}
+              </label>
+            ),
+          )}
         </div>
 
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
@@ -795,7 +1174,7 @@ export default function Jobs() {
                 {jobsList.map((j, i) => (
                   <tr
                     key={j.id}
-                    onClick={() => setSelected(j)}
+                    onClick={() => openJobDetails(j)}
                     style={{ animationDelay: `${Math.min(i, 12) * 45}ms` }}
                     className="row-in group cursor-pointer transition duration-200 hover:bg-violet-50/60"
                   >
@@ -845,8 +1224,9 @@ export default function Jobs() {
                     <td className="px-3 py-3.5">
                       <Actions
                         j={j}
-                        onOpen={setSelected}
+                        onOpen={openJobDetails}
                         onEdit={editJob}
+                        onVerify={openVerification}
                         onPriority={(job) =>
                           updateJob(job, {
                             priority:
@@ -906,7 +1286,7 @@ export default function Jobs() {
       {/* DETAILS MODAL */}
       {selected && (
         <div
-          onClick={() => setSelected(null)}
+          onClick={closeJobDetails}
           className="fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
         >
           <div
@@ -928,17 +1308,36 @@ export default function Jobs() {
                 </p>
               </div>
               <button
-                onClick={() => {
-                  setSelected(null);
-                  setEditing(false);
-                }}
+                onClick={closeJobDetails}
                 className="rounded-full p-2 text-slate-400 transition hover:bg-violet-50 hover:text-violet-600"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {editing ? (
+            {detailsLoading ? (
+              <div
+                role="status"
+                className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-violet-50 p-5 text-sm font-medium text-violet-600"
+              >
+                <Loader2 size={18} className="animate-spin" />
+                Loading job details...
+              </div>
+            ) : detailsError ? (
+              <div
+                role="alert"
+                className="mt-5 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700"
+              >
+                <p>{detailsError}</p>
+                <button
+                  type="button"
+                  onClick={() => openJobDetails(selected)}
+                  className="mt-3 font-bold text-violet-700 hover:text-violet-900"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : editing ? (
               <div className="mt-5 space-y-3">
                 {[
                   ["customer", "Customer"],
@@ -1020,52 +1419,230 @@ export default function Jobs() {
               </div>
             )}
 
-            <div className="mt-5 flex items-center justify-between gap-3">
-              {editing ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelected(
-                        jobsList.find((job) => job.id === selected.id),
-                      );
-                      setEditing(false);
-                    }}
-                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateJob(selected, {});
-                      setEditing(false);
-                    }}
-                    className="rounded-full bg-violet-600 px-5 py-2 text-sm font-bold text-white"
-                  >
-                    Save changes
-                  </button>
-                </>
-              ) : (
-                <>
-                  <StatusBadge status={selected.status} />
-                  <Actions
-                    j={selected}
-                    onOpen={setSelected}
-                    onEdit={editJob}
-                    onPriority={(job) =>
-                      updateJob(job, {
-                        priority: job.priority === "High" ? "Medium" : "High",
-                      })
-                    }
-                    onFavorite={toggleFavorite}
-                    onDelete={handleDeleteJob}
-                    isFavorite={favorites.has(selected.id)}
-                  />
-                </>
-              )}
-            </div>
+            {!detailsLoading && !detailsError && (
+              <div className="mt-5 flex items-center justify-between gap-3">
+                {editing ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelected(
+                          jobsList.find((job) => job.id === selected.id),
+                        );
+                        setEditing(false);
+                      }}
+                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateJob(selected, {});
+                        setEditing(false);
+                      }}
+                      className="rounded-full bg-violet-600 px-5 py-2 text-sm font-bold text-white"
+                    >
+                      Save changes
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <StatusBadge status={selected.status} />
+                    <Actions
+                      j={selected}
+                      onOpen={openJobDetails}
+                      onEdit={editJob}
+                      onVerify={openVerification}
+                      onPriority={(job) =>
+                        updateJob(job, {
+                          priority: job.priority === "High" ? "Medium" : "High",
+                        })
+                      }
+                      onFavorite={toggleFavorite}
+                      onDelete={handleDeleteJob}
+                      isFavorite={favorites.has(selected.id)}
+                    />
+                  </>
+                )}
+              </div>
+            )}
           </div>
+        </div>
+      )}
+      {verificationJob && (
+        <div
+          className="fade-in fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          onClick={closeVerification}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="job-code-dialog-title"
+            className="pop-in w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="flex items-center justify-between bg-blue-600 px-6 py-5 text-white">
+              <h2
+                id="job-code-dialog-title"
+                className="flex items-center gap-2 text-lg font-bold"
+              >
+                <RefreshCw size={22} />
+                Update Job Status
+              </h2>
+              <button
+                type="button"
+                onClick={closeVerification}
+                aria-label="Close verification dialog"
+                className="rounded-full p-1 text-blue-200 transition hover:bg-blue-500 hover:text-white disabled:opacity-50"
+                disabled={verificationLoading || statusUpdating}
+              >
+                <X size={24} />
+              </button>
+            </header>
+
+            <div className="space-y-5 p-6">
+              <p className="text-sm text-slate-500">
+                Enter the verification code for job{" "}
+                <span className="font-bold text-slate-800">
+                  {jobNo(verificationJob)}
+                </span>
+                .
+              </p>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">
+                  Verification Code
+                </span>
+                <input
+                  autoFocus
+                  value={verificationCode}
+                  onChange={(event) => {
+                    verificationRequestRef.current += 1;
+                    setVerificationCode(event.target.value);
+                    setVerificationError("");
+                    setCodeVerified(false);
+                    setVerificationStatus("");
+                    setVerificationLoading(false);
+                  }}
+                  placeholder="Enter verification code"
+                  autoComplete="one-time-code"
+                  className="h-14 w-full rounded-xl border border-slate-200 px-4 text-lg text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  disabled={verificationLoading}
+                />
+              </label>
+
+              {verificationLoading && (
+                <div
+                  role="status"
+                  className="flex items-center gap-2 text-sm font-medium text-blue-700"
+                >
+                  <Loader2 size={17} className="animate-spin" />
+                  Verifying code...
+                </div>
+              )}
+              {codeVerified && (
+                <div
+                  role="status"
+                  className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800"
+                >
+                  <CheckCircle2 size={20} className="shrink-0" />
+                  Code verified successfully.
+                </div>
+              )}
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">
+                  New Status
+                </span>
+                <select
+                  value={verificationStatus}
+                  onChange={(event) =>
+                    setVerificationStatus(event.target.value)
+                  }
+                  disabled={
+                    !codeVerified ||
+                    verificationLoading ||
+                    closingStatusesLoading ||
+                    Boolean(closingStatusesError) ||
+                    statusUpdating
+                  }
+                  className="h-14 w-full rounded-xl border border-slate-200 bg-white px-4 text-base text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  <option value="">Select a status</option>
+                  {closingStatuses.map((status) => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {closingStatusesLoading && (
+                <div
+                  role="status"
+                  className="flex items-center gap-2 text-sm font-medium text-blue-700"
+                >
+                  <Loader2 size={17} className="animate-spin" />
+                  Loading statuses...
+                </div>
+              )}
+              {closingStatusesError && (
+                <div
+                  role="alert"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                >
+                  <span>{closingStatusesError}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setClosingStatusesRetry((attempt) => attempt + 1)
+                    }
+                    className="font-semibold text-blue-700 hover:text-blue-900"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {verificationError && (
+                <p
+                  role="alert"
+                  className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                >
+                  {verificationError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={closeVerification}
+                  disabled={verificationLoading || statusUpdating}
+                  className="rounded-lg bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 disabled:opacity-50"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={handleStatusUpdate}
+                  disabled={
+                    !codeVerified ||
+                    !verificationStatus ||
+                    verificationLoading ||
+                    closingStatusesLoading ||
+                    Boolean(closingStatusesError) ||
+                    statusUpdating
+                  }
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {statusUpdating ? (
+                    <Loader2 size={17} className="animate-spin" />
+                  ) : (
+                    <CheckCircle2 size={17} />
+                  )}
+                  {statusUpdating ? "Updating..." : "Update Status"}
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
       )}
       <ConfirmDialog

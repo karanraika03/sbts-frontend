@@ -7,8 +7,11 @@ import {
   AlertCircle,
   User,
   Laptop,
+  Puzzle,
   Wrench,
   IndianRupee,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 import {
@@ -61,6 +64,13 @@ const toInputDate = (d) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const money = (n) => Number(n || 0).toFixed(2);
 
+const newPart = () => ({
+  key: `${Date.now()}-${Math.random()}`,
+  partName: "",
+  partCost: "",
+  raw: null,
+});
+
 const inputCls =
   "w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-[13px] text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-violet-200 focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100";
 
@@ -87,9 +97,8 @@ const initial = {
   extras: "",
   issues: [],
   notes: "",
-  estimate: "",
   advance: "",
-  partCost: "",
+  repairCost: "",
   date: defaultDelivery(),
   sendWhatsapp: true,
   printLabel: true,
@@ -98,9 +107,12 @@ const initial = {
 /* ---------- small pieces ---------- */
 function Section({ n, title, hint, icon: Icon, children }) {
   return (
-    <section className="rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm transition hover:shadow-md sm:p-5">
+    <section
+      style={{ animationDelay: `${80 + n * 70}ms` }}
+      className="nj-up rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm transition duration-300 hover:shadow-md sm:p-5"
+    >
       <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-500 text-white shadow-md shadow-violet-200">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-500 text-white shadow-md shadow-violet-200 transition duration-300 hover:rotate-6 hover:scale-110">
           <Icon size={17} />
         </div>
         <div className="flex-1">
@@ -110,7 +122,7 @@ function Section({ n, title, hint, icon: Icon, children }) {
           <p className="text-[11px] text-slate-400">{hint}</p>
         </div>
         <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-600">
-          Step {n} of 4
+          Step {n} of 5
         </span>
       </div>
       {children}
@@ -134,13 +146,13 @@ function Chip({ active, onClick, children }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${
+      className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition duration-200 hover:-translate-y-0.5 active:scale-95 ${
         active
           ? "border-violet-600 bg-violet-600 text-white shadow-md shadow-violet-200"
           : "border-slate-200 bg-white text-slate-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
       }`}
     >
-      {active && <Check size={12} strokeWidth={3} />}
+      {active && <Check size={12} strokeWidth={3} className="nj-pop" />}
       {children}
     </button>
   );
@@ -152,13 +164,13 @@ function Check2({ checked, onChange, children }) {
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        className={`flex h-5 w-5 items-center justify-center rounded-md transition ${
+        className={`flex h-5 w-5 items-center justify-center rounded-md transition duration-200 active:scale-90 ${
           checked
             ? "bg-violet-600 text-white shadow shadow-violet-200"
             : "border border-slate-300 bg-white"
         }`}
       >
-        {checked && <Check size={12} strokeWidth={3.5} />}
+        {checked && <Check size={12} strokeWidth={3.5} className="nj-pop" />}
       </button>
       {children}
     </label>
@@ -220,11 +232,26 @@ export default function NewJobs() {
   const [saving, setSaving] = useState(false);
   const customerDropdownRef = useRef(null);
 
+  const [parts, setParts] = useState(() => [newPart()]);
+
+  const addPart = () => setParts((current) => [...current, newPart()]);
+  const removePart = (key) =>
+    setParts((current) =>
+      current.length === 1 ? [newPart()] : current.filter((p) => p.key !== key),
+    );
+  const updatePart = (key, field, value) =>
+    setParts((current) =>
+      current.map((p) => (p.key === key ? { ...p, [field]: value } : p)),
+    );
+  const partsTotal = parts.reduce((t, p) => t + Number(p.partCost || 0), 0);
+  const totalPartCost = partsTotal;
+
   useEffect(() => {
     if (!isEditingJob) {
       setJobLoading(false);
       setJobLoadError("");
       setF(initial);
+      setParts([newPart()]);
       setJobNumber(NEXT_JOB_NO);
       setJobRecord(null);
       return undefined;
@@ -245,10 +272,9 @@ export default function NewJobs() {
 
         const job = response.data;
         setJobRecord(job);
-        const technicalProblem = String(job.technicalProblem || "");
+        const technicalProblem = String(job.technicalProblem || "").trim();
         const issueMatches = ISSUES.filter(
-          (issue) =>
-            issue.toLowerCase() === technicalProblem.trim().toLowerCase(),
+          (issue) => issue.toLowerCase() === technicalProblem.toLowerCase(),
         );
         setF((current) => ({
           ...current,
@@ -264,16 +290,21 @@ export default function NewJobs() {
           extras: String(job.extraItem ?? ""),
           issues: issueMatches,
           notes: technicalProblem,
-          estimate: String(job.totalEstimatedCost ?? ""),
           advance: String(job.advance ?? ""),
-          partCost: String(
-            job.repairCost ??
-              job.partCost ??
-              job.getJobItems?.[0]?.partCost ??
-              "",
-          ),
+          repairCost: String(job.repairCost ?? ""),
           date: toDateInput(job.dateOfDelivery),
         }));
+        const loadedParts = Array.isArray(job.getJobItems)
+          ? job.getJobItems
+              .filter((item) => item.isActive !== false)
+              .map((item) => ({
+                key: `${item.id ?? Math.random()}-${Math.random()}`,
+                partName: String(item.partName ?? ""),
+                partCost: String(item.partCost ?? ""),
+                raw: item,
+              }))
+          : [];
+        setParts(loadedParts.length ? loadedParts : [newPart()]);
         setJobNumber(job.srNo ?? job.id);
       } catch (error) {
         if (controller.signal.aborted) return;
@@ -565,13 +596,33 @@ export default function NewJobs() {
     if (errors[k]) setErrors((p) => ({ ...p, [k]: undefined }));
   };
 
-  const toggleIssue = (x) =>
-    set(
-      "issues",
-      f.issues.includes(x) ? f.issues.filter((i) => i !== x) : [...f.issues, x],
-    );
+  const toggleIssue = (issue) => {
+    const nextIssues = f.issues.includes(issue)
+      ? f.issues.filter((item) => item !== issue)
+      : [...f.issues, issue];
+    const currentIssueText = f.issues.join(", ");
+    const nextIssueText = nextIssues.join(", ");
+    let extraNotes = f.notes;
 
-  const balance = Math.max(Number(f.estimate || 0) - Number(f.advance || 0), 0);
+    if (currentIssueText && extraNotes.startsWith(currentIssueText)) {
+      const remainder = extraNotes.slice(currentIssueText.length);
+      if (!remainder || remainder.startsWith("\n")) {
+        extraNotes = remainder.replace(/^\n/, "");
+      }
+    }
+
+    setF((current) => ({
+      ...current,
+      issues: nextIssues,
+      notes: [nextIssueText, extraNotes].filter(Boolean).join("\n"),
+    }));
+    if (errors.issues) {
+      setErrors((current) => ({ ...current, issues: undefined }));
+    }
+  };
+
+  const estimate = Number(f.repairCost || 0) + totalPartCost;
+  const balance = Math.max(estimate - Number(f.advance || 0), 0);
   const now = new Date();
   const deliveryDate = f.date ? new Date(f.date + "T00:00:00") : null;
   const deliveryText = deliveryDate ? fmtDate(deliveryDate) : "-";
@@ -593,7 +644,7 @@ export default function NewJobs() {
     `💬 Issue: ${issueText ? issueText.toUpperCase() : "ISSUE"}`,
     `📦 Extra item: ${extraText}`,
     `💳 Advance: ₹${money(f.advance)}`,
-    `💰 Total cost: ₹${money(f.estimate)}`,
+    `💰 Total cost: ₹${money(estimate)}`,
     `📅 Estimated delivery: ${deliveryText}`,
     `📍 ${SHOP.address}`,
     `☎️ Office helpline: ${SHOP.helpline}`,
@@ -609,6 +660,7 @@ export default function NewJobs() {
     if (!f.issues.length && !(isEditingJob && f.notes.trim())) {
       e.issues = "Select at least one issue";
     }
+    if (!f.date) e.date = "Select a delivery date";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -630,85 +682,51 @@ export default function NewJobs() {
     }
     setSaving(true);
     try {
+      const filledParts = parts.filter(
+        (part) => part.partName.trim() || Number(part.partCost || 0) > 0,
+      );
+      const partsToSend = filledParts.length ? filledParts : [newPart()];
+      const dateOfDelivery = new Date(`${f.date}T12:00:00`).toISOString();
+
+      const common = {
+        srNo: isEditingJob ? Number(jobRecord?.srNo ?? jobNumber) : 0,
+        customerId: Number(f.customerId),
+        productId: Number(f.device),
+        modelConfi: f.configuration,
+        modelDetail: f.model,
+        modelCondition: f.condition,
+        extraItem: f.extras.trim(),
+        remark: isEditingJob ? (jobRecord?.remark ?? "") : f.notes,
+        totalEstimatedCost: estimate,
+        technicalProblem: f.notes,
+        repairCost: Number(f.repairCost || 0),
+        advance: Number(f.advance || 0),
+        balance,
+        status: isEditingJob ? Number(jobRecord?.status ?? 0) : 0,
+        isActive: 1,
+        dateOfDelivery,
+      };
+
       const payload = isEditingJob
         ? {
-            ...jobRecord,
             id: Number(jobRecord?.id ?? jobId),
-            srNo: Number(jobRecord?.srNo ?? jobNumber),
-            customerId: Number(f.customerId),
-            customer: f.name,
-            mobileNo: f.mobile,
-            productName:
-              selectedProductType?.name?.toUpperCase() ??
-              jobRecord?.productName ??
-              "",
+            ...common,
             productCompany: f.brand,
-            productId: Number(f.device),
-            modelConfi: f.configuration,
-            modelDetail: f.model,
-            modelCondition: f.condition,
-            extraItem: f.extras.trim(),
-            remark: jobRecord?.remark ?? "",
-            technicalProblem: f.notes,
-            totalEstimatedCost: Number(f.estimate || 0),
-            repairCost: Number(f.partCost || 0),
-            partCost: Number(f.partCost || 0),
-            advance: Number(f.advance || 0),
-            balance,
-            dateOfDelivery: new Date(`${f.date}T12:00:00`).toISOString(),
-            getJobItems: jobRecord?.getJobItems?.length
-              ? jobRecord.getJobItems.map((item, index) =>
-                  index === 0
-                    ? {
-                        ...item,
-                        jobProfileId: Number(jobRecord?.id ?? jobId),
-                        technicalProblem: f.notes,
-                        repairEstimatedCost: Number(f.partCost || 0),
-                        partCost: Number(f.partCost || 0),
-                      }
-                    : item,
-                )
-              : [
-                  {
-                    id: 0,
-                    jobProfileId: Number(jobRecord?.id ?? jobId),
-                    isActive: true,
-                    srNo: 1,
-                    technicalProblem: f.notes,
-                    partNumber: "",
-                    partName: "",
-                    jobQRPath: "",
-                    customerView: f.notes,
-                    repairEstimatedCost: Number(f.partCost || 0),
-                    partCost: Number(f.partCost || 0),
-                  },
-                ],
+            getJobItems: partsToSend.map((part, index) => ({
+              id: Number(part.raw?.id ?? 0),
+              srNo: index + 1,
+              partName: part.partName.trim(),
+              partCost: Number(part.partCost || 0),
+            })),
           }
         : {
-            srNo: 0,
-            customerId: Number(f.customerId),
-            productId: Number(f.device),
-            modelConfi: f.configuration,
-            modelDetail: f.model,
-            modelCondition: f.condition,
+            ...common,
             modalCompany: f.brand,
-            extraItem: f.extras.trim(),
-            remark: f.notes,
-            totalEstimatedCost: Number(f.estimate || 0),
-            technicalProblem: f.notes,
-            repairCost: Number(f.partCost || 0),
-            advance: Number(f.advance || 0),
-            balance,
-            status: 0,
-            isActive: 1,
-            dateOfDelivery: f.date,
-            getJobItems: [
-              {
-                srNo: 0,
-                partName: "",
-                partCost: Number(f.partCost || 0),
-              },
-            ],
+            getJobItems: partsToSend.map((part, index) => ({
+              srNo: index + 1,
+              partName: part.partName.trim(),
+              partCost: Number(part.partCost || 0),
+            })),
           };
 
       const response = isEditingJob
@@ -745,14 +763,31 @@ export default function NewJobs() {
       setSaving(false);
     }
   };
-
   const errCls =
-    "mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-red-600";
+    "nj-err mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-red-600";
 
   return (
     <div>
-      {/* print only the label */}
       <style>{`
+        @keyframes njDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+        @keyframes njUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+        @keyframes njLeft { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+        @keyframes njRight { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+        @keyframes njDrop { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
+        @keyframes njPop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: none; } }
+        @keyframes njTick { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+        @keyframes njShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+        .nj-down { animation: njDown .45s cubic-bezier(.2,.8,.2,1) backwards; }
+        .nj-up { animation: njUp .5s cubic-bezier(.2,.8,.2,1) backwards; }
+        .nj-left { animation: njLeft .35s ease-out backwards; }
+        .nj-right { animation: njRight .55s cubic-bezier(.2,.8,.2,1) backwards; }
+        .nj-drop { animation: njDrop .18s ease-out backwards; }
+        .nj-pop { animation: njPop .3s cubic-bezier(.34,1.56,.64,1) backwards; }
+        .nj-tick { animation: njTick .3s ease-out; }
+        .nj-err { animation: njShake .35s ease-in-out; }
+        @media (prefers-reduced-motion: reduce) {
+          .nj-down, .nj-up, .nj-left, .nj-right, .nj-drop, .nj-pop, .nj-tick, .nj-err { animation: none; }
+        }
         @media print {
           body * { visibility: hidden !important; }
           #job-label, #job-label * { visibility: visible !important; }
@@ -761,12 +796,12 @@ export default function NewJobs() {
       `}</style>
 
       {/* Header */}
-      <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+      <div className="nj-down mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
             <button
               onClick={() => navigate("/jobs")}
-              className="hover:text-violet-600"
+              className="transition hover:text-violet-600"
             >
               Jobs
             </button>
@@ -792,7 +827,7 @@ export default function NewJobs() {
       {jobLoading && (
         <div
           role="status"
-          className="mb-4 rounded-2xl border border-violet-100 bg-white p-4 text-sm font-medium text-violet-600"
+          className="nj-down mb-4 rounded-2xl border border-violet-100 bg-white p-4 text-sm font-medium text-violet-600"
         >
           Loading job details...
         </div>
@@ -800,7 +835,7 @@ export default function NewJobs() {
       {jobLoadError && (
         <div
           role="alert"
-          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700"
+          className="nj-down mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700"
         >
           <span>{jobLoadError}</span>
           <div className="flex items-center gap-3">
@@ -859,7 +894,7 @@ export default function NewJobs() {
                   className={inputCls}
                 />
                 {customerLookup.loading && (
-                  <p className="mt-1.5 text-[11px] text-slate-500">
+                  <p className="mt-1.5 animate-pulse text-[11px] text-slate-500">
                     Looking up customer...
                   </p>
                 )}
@@ -869,7 +904,7 @@ export default function NewJobs() {
                   </p>
                 )}
                 {customerLookup.message && (
-                  <p className="mt-1.5 text-[11px] text-amber-700">
+                  <p className="nj-down mt-1.5 text-[11px] text-amber-700">
                     {customerLookup.message}
                   </p>
                 )}
@@ -895,7 +930,7 @@ export default function NewJobs() {
                     </span>
                     <ChevronDown
                       size={16}
-                      className={`shrink-0 text-slate-400 transition-transform ${
+                      className={`shrink-0 text-slate-400 transition-transform duration-200 ${
                         customerDropdownOpen ? "rotate-180" : ""
                       }`}
                     />
@@ -904,7 +939,7 @@ export default function NewJobs() {
                     <div
                       role="listbox"
                       aria-label="Customers"
-                      className="absolute left-0 right-0 top-full z-30 mt-1 max-h-60 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-900/10"
+                      className="nj-drop absolute left-0 right-0 top-full z-30 mt-1 max-h-60 w-full min-w-0 origin-top overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-900/10"
                     >
                       <button
                         type="button"
@@ -972,7 +1007,7 @@ export default function NewJobs() {
                   </p>
                 )}
                 {customersError && (
-                  <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-red-600">
+                  <div className="nj-down mt-1.5 flex items-center justify-between gap-2 text-[11px] text-red-600">
                     <span>{customersError}</span>
                     <button
                       type="button"
@@ -1036,7 +1071,7 @@ export default function NewJobs() {
               )}
             </Field>
             {productTypesError && (
-              <div className="mt-2 flex items-center justify-between gap-3 text-xs text-red-600">
+              <div className="nj-down mt-2 flex items-center justify-between gap-3 text-xs text-red-600">
                 <span>{productTypesError}</span>
                 <button
                   type="button"
@@ -1130,56 +1165,176 @@ export default function NewJobs() {
             </Field>
           </Section>
 
-          {/* 4 Money */}
+          {/* 4 Job Parts */}
           <Section
             n={4}
+            title="Job Parts"
+            hint="Parts used for this repair"
+            icon={Puzzle}
+          >
+            <div className="border-t border-slate-100 pt-4">
+              <div className="overflow-hidden rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+                  <h4 className="text-sm font-bold text-slate-800">
+                    Parts List
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={addPart}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-md hover:shadow-emerald-200 active:scale-95"
+                  >
+                    <Plus size={15} />
+                    Add Part
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <div className="min-w-[560px]">
+                    <div className="grid grid-cols-[90px_minmax(150px,1fr)_minmax(175px,1fr)_90px] items-center gap-3 bg-slate-50 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                      <span>Serial no.</span>
+                      <span>Part name</span>
+                      <span>Part cost</span>
+                      <span className="text-center">Action</span>
+                    </div>
+
+                    <div className="space-y-2 p-3">
+                      {parts.map((part, index) => (
+                        <div
+                          key={part.key}
+                          className="nj-left grid grid-cols-[90px_minmax(150px,1fr)_minmax(175px,1fr)_90px] items-center gap-3 rounded-xl border border-slate-200 p-2 transition-colors hover:border-violet-200 hover:bg-violet-50/30"
+                        >
+                          <span className="inline-flex h-8 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-500 text-xs font-bold text-white shadow-sm">
+                            {index + 1}
+                          </span>
+                          <input
+                            value={part.partName}
+                            onChange={(event) =>
+                              updatePart(
+                                part.key,
+                                "partName",
+                                event.target.value,
+                              )
+                            }
+                            placeholder="Enter part name"
+                            className={inputCls}
+                          />
+                          <div className="flex min-w-0">
+                            <span className="flex items-center rounded-l-xl border border-r-0 border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-600">
+                              ₹
+                            </span>
+                            <input
+                              value={part.partCost}
+                              onChange={(event) =>
+                                updatePart(
+                                  part.key,
+                                  "partCost",
+                                  event.target.value.replace(/\D/g, ""),
+                                )
+                              }
+                              inputMode="numeric"
+                              placeholder="Enter part cost"
+                              className={`${inputCls} min-w-0 rounded-l-none`}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removePart(part.key)}
+                            aria-label={`Remove part ${index + 1}`}
+                            title="Remove part"
+                            className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg text-red-500 transition duration-200 hover:bg-red-50 hover:text-red-600 active:scale-90"
+                          >
+                            <Trash2 size={17} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-violet-50 px-4 py-3 text-sm">
+                <span className="font-semibold text-violet-800">
+                  Total part cost
+                </span>
+                <b
+                  key={totalPartCost}
+                  className="nj-tick inline-block text-base font-bold text-violet-900"
+                >
+                  ₹{totalPartCost.toLocaleString("en-IN")}
+                </b>
+              </div>
+            </div>
+          </Section>
+
+          {/* 5 Money */}
+          <Section
+            n={5}
             title="Money and delivery"
             hint="Estimate, advance and pickup time"
             icon={IndianRupee}
           >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Field label="Estimate (₹)">
-                <input
-                  value={f.estimate}
-                  onChange={(e) =>
-                    set("estimate", e.target.value.replace(/\D/g, ""))
-                  }
-                  inputMode="numeric"
-                  placeholder="e.g. 1500"
-                  className={inputCls}
-                />
+                <div className="flex">
+                  <span className="flex items-center rounded-l-xl border border-r-0 border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-600">
+                    ₹
+                  </span>
+                  <input
+                    value={estimate.toFixed(2)}
+                    readOnly
+                    aria-label="Total estimated cost"
+                    className={`${inputCls} cursor-not-allowed rounded-l-none bg-slate-100`}
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Repair cost plus total part cost
+                </p>
               </Field>
-              <Field label="Advance paid (₹)">
-                <input
-                  value={f.advance}
-                  onChange={(e) =>
-                    set("advance", e.target.value.replace(/\D/g, ""))
-                  }
-                  inputMode="numeric"
-                  placeholder="0"
-                  className={inputCls}
-                />
+              <Field label="Advance amount (₹)">
+                <div className="flex">
+                  <span className="flex items-center rounded-l-xl border border-r-0 border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-600">
+                    ₹
+                  </span>
+                  <input
+                    value={f.advance}
+                    onChange={(e) =>
+                      set("advance", e.target.value.replace(/\D/g, ""))
+                    }
+                    inputMode="numeric"
+                    placeholder="0"
+                    className={`${inputCls} rounded-l-none`}
+                  />
+                </div>
               </Field>
-              <Field label="Part cost (₹)">
-                <input
-                  value={f.partCost}
-                  onChange={(e) =>
-                    set("partCost", e.target.value.replace(/\D/g, ""))
-                  }
-                  inputMode="numeric"
-                  placeholder="0"
-                  className={inputCls}
-                />
+              <Field label="Balance amount (₹)">
+                <div className="flex">
+                  <span className="flex items-center rounded-l-xl border border-r-0 border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-600">
+                    ₹
+                  </span>
+                  <input
+                    value={balance.toFixed(2)}
+                    readOnly
+                    aria-label="Balance amount"
+                    className={`${inputCls} cursor-not-allowed rounded-l-none bg-slate-100`}
+                  />
+                </div>
               </Field>
-            </div>
-
-            <div className="mt-3 flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-600 to-indigo-500 px-4 py-3 text-white shadow-md shadow-violet-200">
-              <span className="text-xs font-semibold text-violet-100">
-                Balance due
-              </span>
-              <b className="text-xl font-bold">
-                ₹{balance.toLocaleString("en-IN")}
-              </b>
+              <Field label="Repair cost (₹)">
+                <div className="flex">
+                  <span className="flex items-center rounded-l-xl border border-r-0 border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-600">
+                    ₹
+                  </span>
+                  <input
+                    value={f.repairCost}
+                    onChange={(e) =>
+                      set("repairCost", e.target.value.replace(/\D/g, ""))
+                    }
+                    inputMode="numeric"
+                    placeholder="0"
+                    className={`${inputCls} rounded-l-none`}
+                  />
+                </div>
+              </Field>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3">
@@ -1190,6 +1345,11 @@ export default function NewJobs() {
                   onChange={(e) => set("date", e.target.value)}
                   className={inputCls}
                 />
+                {errors.date && (
+                  <p className={errCls}>
+                    <AlertCircle size={12} /> {errors.date}
+                  </p>
+                )}
               </Field>
             </div>
 
@@ -1213,16 +1373,19 @@ export default function NewJobs() {
           {submitError && (
             <p
               role="alert"
-              className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600"
+              className="nj-err rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600"
             >
               {submitError}
             </p>
           )}
-          <div className="flex flex-wrap items-center gap-2.5 pb-2">
+          <div
+            style={{ animationDelay: "500ms" }}
+            className="nj-up flex flex-wrap items-center gap-2.5 pb-2"
+          >
             <button
               type="button"
               onClick={() => navigate("/jobs")}
-              className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+              className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 transition duration-200 hover:-translate-y-0.5 hover:bg-slate-50 active:scale-95"
             >
               Cancel
             </button>
@@ -1230,7 +1393,7 @@ export default function NewJobs() {
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="rounded-full bg-violet-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:opacity-70 disabled:hover:translate-y-0"
+              className="rounded-full bg-violet-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-200 transition duration-200 hover:-translate-y-0.5 hover:bg-violet-700 hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:hover:translate-y-0"
             >
               {saving
                 ? isEditingJob
@@ -1244,14 +1407,17 @@ export default function NewJobs() {
         </div>
 
         {/* ---------- LIVE PREVIEW ---------- */}
-        <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+        <aside
+          style={{ animationDelay: "250ms" }}
+          className="nj-right space-y-4 xl:sticky xl:top-6 xl:self-start"
+        >
           <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-slate-500">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
             Live preview
           </p>
 
           {/* Label */}
-          <section className="rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm">
+          <section className="rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm transition duration-300 hover:shadow-md">
             <h3 className="text-sm font-bold text-slate-900">Printed label</h3>
             <div
               id="job-label"
@@ -1276,7 +1442,7 @@ export default function NewJobs() {
                   ["Contact", f.mobile || "-"],
                   ["Issue", issueText || "-"],
                   ["Extra item", extraText],
-                  ["Amount", money(f.estimate), true],
+                  ["Amount", money(estimate), true],
                 ].map(([k, v, bold]) => (
                   <div key={k} className="flex gap-2">
                     <dt className="w-[64px] shrink-0 font-bold">{k}</dt>
@@ -1303,7 +1469,7 @@ export default function NewJobs() {
           </section>
 
           {/* WhatsApp */}
-          <section className="overflow-hidden rounded-2xl shadow-sm">
+          <section className="overflow-hidden rounded-2xl shadow-sm transition duration-300 hover:shadow-md">
             <div className="flex items-center gap-2.5 bg-[#1f6f5a] px-4 py-3 text-white">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[10px] font-bold text-[#1f6f5a]">
                 SB
@@ -1314,7 +1480,10 @@ export default function NewJobs() {
               </div>
             </div>
             <div className="bg-[#ece8e1] p-3.5">
-              <div className="max-w-[94%] rounded-xl rounded-tl-sm bg-[#d9fdd3] px-3 py-2 text-[11.5px] leading-[1.15rem] text-slate-900 shadow-sm">
+              <div
+                style={{ animationDelay: "600ms" }}
+                className="nj-pop max-w-[94%] origin-top-left rounded-xl rounded-tl-sm bg-[#d9fdd3] px-3 py-2 text-[11.5px] leading-[1.15rem] text-slate-900 shadow-sm"
+              >
                 {receiptLines.map((line, i) => (
                   <p key={i}>{line.replace(/\*/g, "")}</p>
                 ))}

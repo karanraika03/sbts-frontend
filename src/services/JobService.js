@@ -135,3 +135,35 @@ export const printJobSheet = async (id) => {
 
   return response.data;
 };
+
+export const verifyJobCode = async (jobId, code) => {
+  const response = await http.get("/api/JSONQuery/verifycode", {
+    params: {
+      jobId,
+      code,
+    },
+  });
+
+  return response.data;
+};
+
+export const getClosingStatus = async () => {
+  const response = await http.get("/api/JSONQuery/closing-status");
+  return response.data;
+};
+
+export const updateJobStatus = async (jobId, status) => {
+  const response = await http.post("/api/JSONQuery/updatestatus", null, {
+    params: {
+      jobId,
+      status,
+    },
+  });
+
+  return response.data;
+};
+
+export const getAllJobStatus = async () => {
+  const response = await http.get("/api/JSONQuery/all-status");
+  return response.data;
+};

@@ -26,6 +26,7 @@ import CustomerList from "../pages/customer/CustomerList";
 import Customer from "../pages/customer/Customers";
 import Jobs from "../pages/jobs/Jobs";
 import NewJobs from "../pages/jobs/NewJobs";
+import JobView from "../pages/jobs/JobView";
 import Inventory from "../pages/partsandinventory/Inventory";
 import MasterSetup from "../pages/master/mastersetup/MasterSetup";
 import MasterDetails from "../pages/master/masterdetails/MasterDetails";
@@ -38,6 +39,7 @@ const pageInfo = {
   "/": "Dashboard",
   "/jobs": "Repair Jobs",
   "/jobs-new": "New Job",
+  "/jobs/:id": "Job Details",
   "/customers": "Customers",
   "/customers/new": "Add Customer",
   "/master-setup": "Master Setup",
@@ -140,6 +142,7 @@ function Shell() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/jobs-new" element={<NewJobs />} />
+            <Route path="/jobs/:id" element={<JobView />} />
             <Route path="/customers" element={<CustomerList />} />
 
             <Route path="/customers/new" element={<Customer />} />
