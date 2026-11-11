@@ -29,7 +29,7 @@ const mainLinks = [
     path: "/master-setting",
     icon: SlidersHorizontal,
   },
-  { label: "WhatsApp", path: "/whatsapp", icon: MessageCircle },
+  // { label: "WhatsApp", path: "/whatsapp", icon: MessageCircle },
 ];
 function LinkGroup({ title, links, onNavigate }) {
   return (
