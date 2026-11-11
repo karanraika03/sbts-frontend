@@ -4,7 +4,6 @@ import {
   ChevronRight,
   ChevronDown,
   Check,
-  Sparkles,
   AlertCircle,
   User,
   Laptop,
@@ -600,24 +599,6 @@ export default function NewJobs() {
     `☎️ Office helpline: ${SHOP.helpline}`,
   ];
 
-  const fillSample = () =>
-    setF({
-      ...initial,
-      mobile: "9812345678",
-      name: "Rahul Sharma",
-      device: productTypes[0] ? String(productTypes[0].id) : "",
-      brand: "HP",
-      model: "15s",
-      configuration: "8GB RAM, 256GB SSD",
-      condition: "Screen flickers, scratch on the lid",
-      extras: "Charger",
-      issues: ["No display"],
-      notes: "Screen flickers, scratch on the lid.",
-      estimate: "1500",
-      advance: "500",
-      partCost: "900",
-    });
-
   const validate = () => {
     const e = {};
     if (!/^\d{10}$/.test(f.mobile)) e.mobile = "Enter a 10 digit mobile number";
@@ -800,13 +781,6 @@ export default function NewJobs() {
         </div>
         {!isEditingJob && (
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={fillSample}
-              className="flex items-center gap-1.5 rounded-full bg-violet-50 px-4 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100"
-            >
-              <Sparkles size={14} /> Fill sample
-            </button>
             <span className="rounded-full border border-violet-100 bg-white px-4 py-2 text-xs text-slate-500">
               Next job{" "}
               <b className="font-bold text-violet-700">#{NEXT_JOB_NO}</b>

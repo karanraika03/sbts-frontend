@@ -926,7 +926,7 @@ export default function MasterDetails() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-violet-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-violet-600 px-5 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
             >
               {saving ? (
                 <Loader2 size={15} className="animate-spin" />
@@ -939,7 +939,7 @@ export default function MasterDetails() {
               type="button"
               onClick={resetForm}
               disabled={saving}
-              className="rounded-full border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-full border border-slate-200 px-5 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
             >
               Cancel
             </button>

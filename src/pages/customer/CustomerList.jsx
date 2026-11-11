@@ -4,17 +4,18 @@ import {
   MapPin,
   Phone,
   MessageCircle,
-  CalendarDays,
   Plus,
   Search,
   Loader2,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Eye,
   Pencil,
   X,
   Trash2,
+  Star,
 } from "lucide-react";
 import {
   getCustomerList,
@@ -24,104 +25,72 @@ import {
 import { useToast } from "../../context/ToastContext";
 import ConfirmDialog from "../../components/ConfirmDialog";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const DEFAULT_PAGE_SIZE = 10;
 
+const STATUS_OPTIONS = [
+  { label: "All status", value: "" },
+  { label: "Active", value: "1" },
+  { label: "Inactive", value: "0" },
+];
+
+const FAVOURITE_OPTIONS = [
+  { label: "All customers", value: "" },
+  { label: "Favourites only", value: "1" },
+];
+
+/* API: { success, message, totalPages, data: [...] } */
 const getCustomerRows = (response) => {
-  if (Array.isArray(response)) return response;
-
-  const candidates = [
-    response?.data,
-    response?.data?.data,
-    response?.obj,
-    response?.result,
-    response?.items,
-    response?.records,
-    response?.data?.items,
-    response?.data?.records,
-    response?.obj?.items,
-    response?.obj?.records,
-  ];
-
-  return candidates.find(Array.isArray) || [];
+  const data = response?.data;
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object") return [data];
+  return [];
 };
 
-const normalizeCustomer = (item, index) => ({
-  id: item.id ?? item.Id ?? item.customerId ?? item.CustomerId ?? index,
-  name:
-    item.name ??
-    item.Name ??
-    item.customerName ??
-    item.CustomerName ??
-    "Unnamed Customer",
-  code:
-    item.code ||
-    item.Code ||
-    item.customerCode ||
-    item.CustomerCode ||
-    item.userName ||
-    item.UserName ||
-    "—",
-  phone:
-    item.phone ??
-    item.Phone ??
-    item.mobileNo ??
-    item.MobileNo ??
-    item.mobileNumber ??
-    item.MobileNumber ??
-    "—",
-  cityName:
-    item.cityName ??
-    item.CityName ??
-    item.city ??
-    item.City ??
-    item.village ??
-    item.Village ??
-    "—",
-  districtId: item.districtId ?? item.DistrictId ?? "",
-  districtName:
-    item.districtName ??
-    item.DistrictName ??
-    item.district ??
-    item.District ??
-    "",
-  cityId: item.cityId ?? item.CityId ?? "",
-  whatsAppMobileNNo:
-    item.whatsAppMobileNNo ??
-    item.whatsAppMobileNo ??
-    item.WhatsAppMobileNo ??
-    item.whatsappMobileNo ??
-    item.whatsAppNumber ??
-    "",
-  email: item.email ?? item.Email ?? "",
-  gender:
-    item.genderName ?? item.GenderName ?? item.gender ?? item.Gender ?? "",
-  address: item.address ?? item.Address ?? "",
-  landMark: item.landMark ?? item.LandMark ?? "",
-  profilePath: item.profilePath ?? item.ProfilePath ?? "",
-  isActive: item.isActive ?? item.IsActive ?? null,
-  jobs: item.jobs ?? item.Jobs ?? item.jobCount ?? item.JobCount ?? null,
-  joined:
-    item.joined ??
-    item.Joined ??
-    item.createdDate ??
-    item.CreatedDate ??
-    item.registrationDate ??
-    item.RegistrationDate ??
-    "",
+/* Exact API fields:
+   id, cityId, genderId, districtId, name, district, gender, email, mobileNo,
+   cityName, state, whatsAppMobileNNo, userName, password, designation,
+   address, landMark, profilePath, isActive, isFavourite */
+const normalizeCustomer = (item) => ({
+  id: item.id,
+  name: item.name || "Unnamed Customer",
+  code: item.userName || "—",
+  phone: item.mobileNo || "—",
+  whatsAppMobileNNo: item.whatsAppMobileNNo || "",
+  email: item.email || "",
+  gender: item.gender || "",
+  genderId: item.genderId ?? "",
+  cityId: item.cityId ?? "",
+  cityName: item.cityName || "—",
+  districtId: item.districtId ?? "",
+  districtName: item.district || "",
+  state: item.state || "",
+  designation: item.designation || "",
+  address: item.address || "",
+  landMark: item.landMark || "",
+  profilePath: item.profilePath || "",
+  isActive: item.isActive ?? null,
+  isFavourite: item.isFavourite ?? null,
 });
 
-const formatVisitDate = (value) => {
-  if (!value) return "—";
+const isActiveValue = (value) => value === 1 || value === "1" || value === true;
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return date.toLocaleDateString("en-IN", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-};
+function FilterSelect({ children, ...props }) {
+  return (
+    <span className="relative inline-flex shrink-0">
+      <select
+        {...props}
+        className="h-11 appearance-none rounded-full border border-violet-100 bg-white pl-4 pr-10 text-sm font-medium text-slate-700 outline-none transition hover:border-violet-200 focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
+      >
+        {children}
+      </select>
+      <ChevronDown
+        size={16}
+        className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+      />
+    </span>
+  );
+}
 
 function CustomerIdentity({ customer }) {
   const initials = customer.name
@@ -133,6 +102,7 @@ function CustomerIdentity({ customer }) {
     .toUpperCase();
 
   const hasCode = customer.code && customer.code !== "—";
+  const favourite = isActiveValue(customer.isFavourite);
 
   return (
     <div className="flex min-w-0 items-center gap-3">
@@ -141,8 +111,17 @@ function CustomerIdentity({ customer }) {
       </span>
 
       <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold capitalize text-slate-800">
-          {customer.name.toLowerCase()}
+        <span className="flex items-center gap-1.5">
+          <span className="block truncate text-sm font-semibold capitalize text-slate-800">
+            {customer.name.toLowerCase()}
+          </span>
+          {favourite && (
+            <Star
+              size={13}
+              className="shrink-0 fill-amber-400 text-amber-400"
+              aria-label="Favourite"
+            />
+          )}
         </span>
         {hasCode && (
           <span className="mt-0.5 block truncate text-[11px] text-slate-400">
@@ -155,7 +134,7 @@ function CustomerIdentity({ customer }) {
 }
 
 function CustomerStatus({ isActive }) {
-  const active = isActive === 1 || isActive === "1" || isActive === true;
+  const active = isActiveValue(isActive);
 
   return (
     <span
@@ -278,7 +257,7 @@ function CustomerDetailsModal({ customer, onClose, onEdit }) {
         }
 
         if (active) {
-          setDetailsCustomer(normalizeCustomer(rows[0], customer.id));
+          setDetailsCustomer(normalizeCustomer(rows[0]));
         }
       } catch (error) {
         console.error("Get Customer Details API Error:", error);
@@ -306,11 +285,14 @@ function CustomerDetailsModal({ customer, onClose, onEdit }) {
   const detail = detailsCustomer || customer;
   const details = [
     ["Phone number", detail.phone],
+    ["WhatsApp", detail.whatsAppMobileNNo],
     ["Email", detail.email],
     ["Gender", detail.gender],
     ["District", detail.districtName],
     ["City", detail.cityName],
-    ["Status", detail.isActive ? "Active" : "Inactive"],
+    ["Designation", detail.designation],
+    ["Status", isActiveValue(detail.isActive) ? "Active" : "Inactive"],
+    ["Landmark", detail.landMark],
     ["Address", detail.address],
   ];
 
@@ -430,16 +412,20 @@ export default function CustomerList() {
   const showToast = useToast();
 
   const [search, setSearch] = useState("");
+  const [activeStatus, setActiveStatus] = useState("");
+  const [favourite, setFavourite] = useState("");
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [customers, setCustomers] = useState([]);
   const [pageNumber, setPageNumber] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [viewingCustomer, setViewingCustomer] = useState(null);
   const [customerToDelete, setCustomerToDelete] = useState(null);
   const [deletingCustomerId, setDeletingCustomerId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
+
+  const hasActiveFilters = Boolean(activeStatus || favourite);
 
   const fetchCustomers = async (
     searchKey = search.trim(),
@@ -449,44 +435,26 @@ export default function CustomerList() {
       setLoading(true);
       setError("");
 
-      const response = await getCustomerList({
-        pageSize: PAGE_SIZE,
+      const params = {
+        pageSize,
         pageNumber: requestedPage,
         searchKey,
-      });
+      };
+      if (activeStatus !== "") params.activeStatus = Number(activeStatus);
+      if (favourite !== "") params.favourite = Number(favourite);
+
+      const response = await getCustomerList(params);
 
       const rows = getCustomerRows(response);
       setCustomers(rows.map(normalizeCustomer));
-      const recordCount = Number(
-        response?.totalRecords ??
-          response?.totalCount ??
-          response?.totalItems ??
-          response?.recordCount ??
-          response?.total ??
-          response?.data?.totalRecords ??
-          response?.data?.totalCount ??
-          response?.data?.totalItems ??
-          response?.obj?.totalRecords ??
-          response?.obj?.totalCount,
-      );
-      setTotalRecords(Number.isFinite(recordCount) ? recordCount : null);
       setTotalPages(
-        Math.max(
-          1,
-          Number(
-            response?.totalPages ??
-              response?.data?.totalPages ??
-              response?.obj?.totalPages ??
-              1,
-          ) || 1,
-        ),
+        Math.max(1, Number(response?.totalPages ?? rows[0]?.totalPages) || 1),
       );
     } catch (err) {
       console.error("Customer List API Error:", err);
 
       setCustomers([]);
       setTotalPages(1);
-      setTotalRecords(null);
       setError(
         err.response?.data?.message ||
           err.response?.data?.title ||
@@ -506,7 +474,13 @@ export default function CustomerList() {
     );
 
     return () => clearTimeout(timer);
-  }, [search, pageNumber]);
+  }, [search, pageNumber, pageSize, activeStatus, favourite]);
+
+  const clearFilters = () => {
+    setActiveStatus("");
+    setFavourite("");
+    setPageNumber(1);
+  };
 
   const editCustomer = (customer) => {
     setViewingCustomer(null);
@@ -551,10 +525,13 @@ export default function CustomerList() {
   const filtered = useMemo(() => customers, [customers]);
 
   const summary = [
-    { label: "Customers loaded", value: customers.length },
     { label: "Showing on this page", value: filtered.length },
+    { label: "Current page", value: pageNumber },
     { label: "Pages available", value: totalPages },
   ];
+
+  const rangeStart = (pageNumber - 1) * pageSize + 1;
+  const rangeEnd = (pageNumber - 1) * pageSize + filtered.length;
 
   return (
     <div className="customer-motion w-full min-w-0">
@@ -597,8 +574,8 @@ export default function CustomerList() {
         ))}
       </div>
 
-      <div className="mb-4 flex items-center gap-3 sm:justify-between">
-        <label className="relative block min-w-0 flex-1 sm:max-w-sm">
+      <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
+        <label className="relative block min-w-[200px] flex-1 sm:max-w-sm">
           <Search
             size={18}
             className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -614,13 +591,75 @@ export default function CustomerList() {
           />
         </label>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <FilterSelect
+          value={activeStatus}
+          onChange={(event) => {
+            setActiveStatus(event.target.value);
+            setPageNumber(1);
+          }}
+          aria-label="Filter by status"
+        >
+          {STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </FilterSelect>
+
+        <FilterSelect
+          value={favourite}
+          onChange={(event) => {
+            setFavourite(event.target.value);
+            setPageNumber(1);
+          }}
+          aria-label="Filter by favourite"
+        >
+          {FAVOURITE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </FilterSelect>
+
+        <div className="contents sm:ml-auto sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-500">
+            <span className="whitespace-nowrap">
+              <span className="sm:hidden">Rows</span>
+              <span className="hidden sm:inline">Rows per page</span>
+            </span>
+            <FilterSelect
+              value={pageSize}
+              onChange={(event) => {
+                setPageSize(Number(event.target.value));
+                setPageNumber(1);
+              }}
+              aria-label="Rows per page"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </FilterSelect>
+          </label>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex h-11 shrink-0 items-center justify-center rounded-full border border-violet-100 bg-white px-5 text-[15px] font-medium text-slate-600 shadow-md shadow-violet-100/60 transition hover:bg-violet-50 hover:text-violet-700 active:scale-95"
+            >
+              Clear filters
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => fetchCustomers(search.trim(), pageNumber)}
             disabled={loading}
-            className="rounded-full border border-violet-200 bg-white p-2.5 text-violet-600 transition hover:bg-violet-50 disabled:opacity-50"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-violet-200 bg-white text-violet-600 transition hover:bg-violet-50 disabled:opacity-50"
             title="Refresh customers"
+            aria-label="Refresh customers"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
@@ -663,7 +702,7 @@ export default function CustomerList() {
                     <th className="px-5 py-3.5">Phone</th>
                     <th className="px-5 py-3.5">Location</th>
                     <th className="px-5 py-3.5">Status</th>
-                    <th className="px-5 py-3.5">Last visit</th>
+                    <th className="px-5 py-3.5">WhatsApp</th>
                     <th className="px-5 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -700,8 +739,8 @@ export default function CustomerList() {
                         <CustomerStatus isActive={customer.isActive} />
                       </td>
 
-                      <td className="whitespace-nowrap px-5 py-3 text-sm text-slate-500">
-                        {formatVisitDate(customer.joined)}
+                      <td className="whitespace-nowrap px-5 py-3 text-sm tabular-nums text-slate-500">
+                        {customer.whatsAppMobileNNo || "—"}
                       </td>
 
                       <td className="px-5 py-3">
@@ -762,17 +801,6 @@ export default function CustomerList() {
                         {customer.whatsAppMobileNNo || "—"}
                       </span>
                     </span>
-
-                    <span className="flex min-w-0 items-center gap-1.5 text-slate-600">
-                      <CalendarDays
-                        size={13}
-                        strokeWidth={1.8}
-                        className="shrink-0 text-violet-500"
-                      />
-                      <span className="truncate">
-                        {formatVisitDate(customer.joined)}
-                      </span>
-                    </span>
                   </div>
 
                   <CardActions
@@ -795,14 +823,7 @@ export default function CustomerList() {
                 <span className="min-w-0 text-center text-xs text-slate-500 sm:text-left">
                   {filtered.length === 0
                     ? "Showing 0 records"
-                    : `Showing ${(pageNumber - 1) * PAGE_SIZE + 1}–${Math.min(
-                        (pageNumber - 1) * PAGE_SIZE + filtered.length,
-                        totalRecords ?? Infinity,
-                      )}${
-                        totalRecords != null
-                          ? ` of ${totalRecords}`
-                          : ` records · Page ${pageNumber} of ${totalPages}`
-                      }`}
+                    : `Showing ${rangeStart}–${rangeEnd} · Page ${pageNumber} of ${totalPages}`}
                 </span>
                 <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
                   <button

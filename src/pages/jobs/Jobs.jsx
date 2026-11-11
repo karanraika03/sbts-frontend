@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Search,
-  Rows3,
-  LayoutGrid,
   Eye,
   Pencil,
   Tag,
@@ -35,17 +33,6 @@ import { useToast } from "../../context/ToastContext";
 
 /* ---------- filters ---------- */
 const s = (j) => String(j.status || "").toLowerCase();
-const TABS = [
-  { key: "All", test: () => true },
-  { key: "Pending", test: (j) => s(j) === "pending" },
-  { key: "Received", test: (j) => s(j).startsWith("received") },
-  { key: "Diagnosing", test: (j) => s(j).startsWith("diagnos") },
-  { key: "Awaiting parts", test: (j) => s(j).startsWith("awaiting") },
-  { key: "In repair", test: (j) => s(j).startsWith("in repair") },
-  { key: "Ready", test: (j) => s(j).startsWith("ready") },
-  { key: "Overdue", test: (j) => s(j).startsWith("overdue") },
-  { key: "Delivered", test: (j) => s(j).startsWith("deliver") },
-];
 
 /* ---------- helpers ---------- */
 const jobNo = (job) => {
@@ -342,7 +329,6 @@ export default function Jobs() {
   const [jobsError, setJobsError] = useState("");
   const [jobsRetry, setJobsRetry] = useState(0);
   const [search, setSearch] = useState("");
-  const [view, setView] = useState("table");
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(false);
   const [favorites, setFavorites] = useState(() => new Set());
@@ -598,20 +584,6 @@ export default function Jobs() {
         description="Track every repair from device intake to customer pickup."
         action={
           <div className="flex items-center gap-3">
-            <div className="flex rounded-full bg-white p-1 shadow-sm ring-1 ring-violet-100">
-              {[
-                { k: "table", l: "Table", i: Rows3 },
-                { k: "board", l: "Board", i: LayoutGrid },
-              ].map(({ k, l, i: Icon }) => (
-                <button
-                  key={k}
-                  onClick={() => setView(k)}
-                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${view === k ? "bg-violet-600 text-white shadow-md shadow-violet-200" : "text-slate-500 hover:text-violet-600"}`}
-                >
-                  <Icon size={14} /> {l}
-                </button>
-              ))}
-            </div>
             <button
               onClick={() => navigate("/jobs-new")}
               className="inline-flex h-11 items-center gap-2 rounded-full bg-violet-600 px-5 text-xs font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 active:scale-95"
@@ -786,7 +758,7 @@ export default function Jobs() {
       </div>
 
       {/* TABLE VIEW */}
-      {!jobsLoading && !jobsError && view === "table" && (
+      {!jobsLoading && !jobsError && (
         <section className="overflow-hidden rounded-[22px] border border-violet-100 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1280px] table-fixed text-left">
@@ -929,78 +901,6 @@ export default function Jobs() {
             </div>
           </div>
         </section>
-      )}
-
-      {/* BOARD VIEW */}
-      {!jobsLoading && !jobsError && view === "board" && (
-        <div className="fade-in grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {TABS.filter((t) => !["All", "Overdue"].includes(t.key)).map(
-            (col) => {
-              const items = jobsList.filter(col.test);
-              return (
-                <div key={col.key} className="rounded-2xl bg-[#f1eefc]/70 p-3">
-                  <div className="mb-3 flex items-center justify-between px-1">
-                    <h4 className="text-xs font-bold text-slate-700">
-                      {col.key}
-                    </h4>
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-600">
-                      {items.length}
-                    </span>
-                  </div>
-                  <div className="space-y-2.5">
-                    {items.map((j, i) => (
-                      <div
-                        key={j.id}
-                        onClick={() => setSelected(j)}
-                        style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
-                        className="row-in cursor-pointer rounded-xl border border-violet-100 bg-white p-3 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-violet-100"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-violet-600">
-                            {jobNo(j)}
-                          </span>
-                          <span className="text-xs font-bold text-slate-700">
-                            {rupee(j.amount)}
-                          </span>
-                        </div>
-                        <p className="mt-1.5 text-[13px] font-bold text-slate-800">
-                          {j.customer}
-                        </p>
-                        <p className="text-[11px] text-slate-400">
-                          {j.device} · {j.issue}
-                        </p>
-                        <div className="mt-2.5 flex items-center justify-between">
-                          <span className="text-[11px] text-slate-500">
-                            {j.date}
-                          </span>
-                          <Actions
-                            j={j}
-                            onOpen={setSelected}
-                            onEdit={editJob}
-                            onPriority={(job) =>
-                              updateJob(job, {
-                                priority:
-                                  job.priority === "High" ? "Medium" : "High",
-                              })
-                            }
-                            onFavorite={toggleFavorite}
-                            onDelete={handleDeleteJob}
-                            isFavorite={favorites.has(j.id)}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                    {items.length === 0 && (
-                      <p className="py-6 text-center text-[11px] text-slate-400">
-                        No jobs
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            },
-          )}
-        </div>
       )}
 
       {/* DETAILS MODAL */}

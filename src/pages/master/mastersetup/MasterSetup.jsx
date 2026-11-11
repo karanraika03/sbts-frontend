@@ -12,8 +12,6 @@ import {
   Trash2,
   Info,
   Layers,
-  CalendarDays,
-  Hash,
 } from "lucide-react";
 import {
   deleteMasterType,
@@ -43,25 +41,10 @@ const normalizeMaster = (item) => ({
   name: item.name ?? "Unnamed Master",
   parentId: item.parentId ?? "",
   parentName: item.parent ?? "",
-  serialNumber: item.serialNumber ?? "",
   isActive: item.isActive ?? null,
-  created: item.createdDate ?? "",
 });
 
 const isActiveValue = (value) => value === 1 || value === "1" || value === true;
-
-const formatDate = (value) => {
-  if (!value) return "—";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return date.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-};
 
 const getApiError = (err, fallback) =>
   err.response?.data?.message ||
@@ -271,9 +254,7 @@ function MasterDetailsModal({ master, parentLabel, onClose, onEdit }) {
   const details = [
     ["Name", detail.name],
     ["Parent", detail.parentName || parentLabel],
-    ["Serial number", detail.serialNumber],
     ["Status", isActiveValue(detail.isActive) ? "Active" : "Inactive"],
-    ["Created on", formatDate(detail.created)],
   ];
 
   return (
@@ -767,7 +748,7 @@ export default function MasterSetupList() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-violet-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-violet-600 px-5 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
             >
               {saving ? (
                 <Loader2 size={15} className="animate-spin" />
@@ -780,7 +761,7 @@ export default function MasterSetupList() {
               type="button"
               onClick={resetForm}
               disabled={saving}
-              className="rounded-full border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-full border border-slate-200 px-5 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -860,23 +841,19 @@ export default function MasterSetupList() {
           <>
             {/* Desktop table (lg and up) */}
             <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[820px] table-fixed text-left">
+              <table className="w-full min-w-[640px] table-fixed text-left">
                 <colgroup>
-                  <col className="w-[28%]" />
+                  <col className="w-[36%]" />
+                  <col className="w-[26%]" />
                   <col className="w-[18%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[15%]" />
-                  <col className="w-[14%]" />
+                  <col className="w-[20%]" />
                 </colgroup>
 
                 <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur">
                   <tr className="border-b border-violet-100 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                     <th className="px-5 py-3.5">Name</th>
                     <th className="px-5 py-3.5">Parent</th>
-                    <th className="px-5 py-3.5">Serial no.</th>
                     <th className="px-5 py-3.5">Status</th>
-                    <th className="px-5 py-3.5">Created</th>
                     <th className="px-5 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -907,19 +884,8 @@ export default function MasterSetupList() {
                         </span>
                       </td>
 
-                      <td className="whitespace-nowrap px-5 py-3 text-sm font-medium tabular-nums text-slate-700">
-                        {master.serialNumber !== "" &&
-                        master.serialNumber !== null
-                          ? master.serialNumber
-                          : "—"}
-                      </td>
-
                       <td className="px-5 py-3">
                         <MasterStatus isActive={master.isActive} />
-                      </td>
-
-                      <td className="whitespace-nowrap px-5 py-3 text-sm text-slate-500">
-                        {formatDate(master.created)}
                       </td>
 
                       <td className="px-5 py-3">
@@ -952,7 +918,7 @@ export default function MasterSetupList() {
                     <MasterStatus isActive={master.isActive} />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-2 text-xs min-[400px]:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-2 text-xs">
                     <span className="flex min-w-0 items-center gap-1.5 text-slate-600">
                       <Layers
                         size={13}
@@ -960,31 +926,6 @@ export default function MasterSetupList() {
                         className="shrink-0 text-violet-500"
                       />
                       <span className="truncate">{getParentLabel(master)}</span>
-                    </span>
-
-                    <span className="flex min-w-0 items-center gap-1.5 text-slate-600">
-                      <Hash
-                        size={13}
-                        strokeWidth={1.8}
-                        className="shrink-0 text-violet-500"
-                      />
-                      <span className="truncate">
-                        {master.serialNumber !== "" &&
-                        master.serialNumber !== null
-                          ? master.serialNumber
-                          : "—"}
-                      </span>
-                    </span>
-
-                    <span className="flex min-w-0 items-center gap-1.5 text-slate-600">
-                      <CalendarDays
-                        size={13}
-                        strokeWidth={1.8}
-                        className="shrink-0 text-violet-500"
-                      />
-                      <span className="truncate">
-                        {formatDate(master.created)}
-                      </span>
                     </span>
                   </div>
 
