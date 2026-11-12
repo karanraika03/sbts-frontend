@@ -8,8 +8,6 @@ import {
   Plus,
   Search,
   Bell,
-  MessageCircle,
-  ChevronDown,
 } from "lucide-react";
 import {
   Area,
@@ -25,9 +23,13 @@ import {
 } from "recharts";
 import StatCard from "../../components/StatCard";
 
+import { useToast } from "../../context/ToastContext";
+
 import {
   getDashboardData,
   getOverdueDeliveries,
+  getCustomerCityCount,
+  getJobRevenue,
 } from "../../services/Dashboard";
 
 import { sendJobReminder } from "../../services/JobService";
@@ -55,9 +57,19 @@ const genSeries = (n, base, amp, seed, labelFn, spike) => {
   });
 };
 
+const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
+const toNum = (v) => Number(v) || 0;
+
+const normalizeCityName = (name) =>
+  (name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\(.*?\)\s*/g, "")
+    .replace(/\s+/g, " ");
+
+/* ---------- revenue chart (demo series, totals come from API) ---------- */
 const revenueByRange = {
   "7D": {
-    total: "₹46,000",
     change: "+10.4%",
     cur: "Last 7 days",
     prev: "Previous 7 days",
@@ -72,14 +84,12 @@ const revenueByRange = {
     ],
   },
   "30D": {
-    total: "₹1,35,400",
     change: "+19.5%",
     cur: "Last 30 days",
     prev: "Previous 30 days",
     data: genSeries(30, 3400, 2600, 7, (i) => `${i + 1}`, 15200),
   },
   "12M": {
-    total: "₹21,40,000",
     change: "+24.3%",
     cur: "Last 12 months",
     prev: "Previous 12 months",
@@ -106,54 +116,6 @@ const revenueByRange = {
     ),
   },
 };
-
-// const stages = [
-//   { name: "Received", value: 12, color: "#b7add8" },
-//   { name: "Diagnosing", value: 8, color: "#5d8cf1" },
-//   { name: "Awaiting parts", value: 11, color: "#f3aa39" },
-//   { name: "In repair", value: 9, color: "#7654f5" },
-//   { name: "Ready", value: 7, color: "#2dbb87" },
-// ];
-
-const attention = [
-  { id: "#1612", name: "Heena Rao", days: 9 },
-  { id: "#1625", name: "Sandeep Kumar", days: 8 },
-  { id: "#1620", name: "Chetan Jangra", days: 8 },
-  { id: "#1617", name: "Sunil Kumar", days: 7 },
-  { id: "#1613", name: "Geeta Chhikara", days: 5 },
-];
-
-const whatsapp = [
-  {
-    label: "Sent",
-    value: 39,
-    max: 39,
-    bar: "bg-violet-600",
-    track: "bg-violet-100",
-  },
-  {
-    label: "Delivered",
-    value: 37,
-    max: 39,
-    bar: "bg-violet-600",
-    track: "bg-violet-100",
-  },
-  {
-    label: "Read",
-    value: 30,
-    max: 39,
-    bar: "bg-violet-600",
-    track: "bg-violet-100",
-  },
-  {
-    label: "Failed",
-    value: 1,
-    max: 39,
-    bar: "bg-red-600",
-    track: "bg-red-100",
-    red: true,
-  },
-];
 
 /* ---------- map data ---------- */
 const MAP_W = 820;
@@ -215,81 +177,51 @@ const inside = (x, y) => {
   return c;
 };
 
+// Only coordinates + tehsil. Counts / revenue come from the API.
 const villages = [
-  {
-    name: "Hisar city",
-    tehsil: "Hisar",
-    c: 296,
-    s: 323,
-    r: 8.2,
-    x: 335,
-    y: 438,
-    shop: true,
-  },
-  {
-    name: "Nyoli Kalan",
-    tehsil: "Hisar",
-    c: 45,
-    s: 54,
-    r: 1.4,
-    x: 300,
-    y: 470,
-  },
-  { name: "Dabra", tehsil: "Hisar", c: 33, s: 33, r: 0.9, x: 361, y: 477 },
-  { name: "Kaimri", tehsil: "Hisar", c: 30, s: 41, r: 1.1, x: 387, y: 453 },
-  { name: "Chikanwas", tehsil: "Hisar", c: 27, s: 31, r: 0.8, x: 420, y: 500 },
-  { name: "Dhiranwas", tehsil: "Hisar", c: 24, s: 28, r: 0.7, x: 246, y: 485 },
-  {
-    name: "Mangali Jhara",
-    tehsil: "Hisar",
-    c: 22,
-    s: 26,
-    r: 0.6,
-    x: 319,
-    y: 517,
-  },
-  { name: "Siswal", tehsil: "Hisar", c: 19, s: 22, r: 0.5, x: 290, y: 395 },
-  { name: "Balsamand", tehsil: "Hisar", c: 17, s: 19, r: 0.5, x: 330, y: 380 },
-  { name: "Mayyar", tehsil: "Hisar", c: 15, s: 17, r: 0.4, x: 240, y: 420 },
-  { name: "Sisai", tehsil: "Hisar", c: 13, s: 15, r: 0.4, x: 450, y: 440 },
-  { name: "Pabra", tehsil: "Hisar", c: 11, s: 12, r: 0.3, x: 470, y: 480 },
-  { name: "Kinala", tehsil: "Hisar", c: 9, s: 10, r: 0.3, x: 380, y: 550 },
-  { name: "Adampur", tehsil: "Adampur", c: 26, s: 30, r: 0.9, x: 230, y: 300 },
-  {
-    name: "Khanda Kheri",
-    tehsil: "Adampur",
-    c: 12,
-    s: 14,
-    r: 0.3,
-    x: 190,
-    y: 350,
-  },
-  { name: "Hansi", tehsil: "Hansi", c: 20, s: 25, r: 0.7, x: 560, y: 380 },
-  {
-    name: "Satrod Khurd",
-    tehsil: "Hansi",
-    c: 14,
-    s: 16,
-    r: 0.4,
-    x: 600,
-    y: 330,
-  },
-  { name: "Barwala", tehsil: "Barwala", c: 16, s: 18, r: 0.5, x: 470, y: 300 },
-  {
-    name: "Narnaund",
-    tehsil: "Narnaund",
-    c: 10,
-    s: 11,
-    r: 0.3,
-    x: 620,
-    y: 450,
-  },
-  { name: "Uklana", tehsil: "Uklana", c: 8, s: 9, r: 0.2, x: 330, y: 300 },
-  { name: "Bass", tehsil: "Bass", c: 7, s: 8, r: 0.2, x: 420, y: 250 },
-  { name: "Rawalwas", tehsil: "Hisar", c: 0, s: 0, r: 0, x: 200, y: 450 },
-  { name: "Mirkan", tehsil: "Hansi", c: 0, s: 0, r: 0, x: 520, y: 430 },
-  { name: "Dhansu", tehsil: "Narnaund", c: 0, s: 0, r: 0, x: 650, y: 380 },
+  { name: "Hisar city", tehsil: "Hisar", x: 335, y: 438, shop: true },
+  { name: "Nyoli Kalan", tehsil: "Hisar", x: 300, y: 470 },
+  { name: "Dabra", tehsil: "Hisar", x: 361, y: 477 },
+  { name: "Kaimri", tehsil: "Hisar", x: 387, y: 453 },
+  { name: "Chikanwas", tehsil: "Hisar", x: 420, y: 500 },
+  { name: "Dhiranwas", tehsil: "Hisar", x: 246, y: 485 },
+  { name: "Mangali Jhara", tehsil: "Hisar", x: 319, y: 517 },
+  { name: "Siswal", tehsil: "Hisar", x: 290, y: 395 },
+  { name: "Balsamand", tehsil: "Hisar", x: 330, y: 380 },
+  { name: "Mayyar", tehsil: "Hisar", x: 240, y: 420 },
+  { name: "Sisai", tehsil: "Hisar", x: 450, y: 440 },
+  { name: "Pabra", tehsil: "Hisar", x: 470, y: 480 },
+  { name: "Kinala", tehsil: "Hisar", x: 380, y: 550 },
+  { name: "Rawalwas", tehsil: "Hisar", x: 200, y: 450 },
+  { name: "Adampur", tehsil: "Adampur", x: 230, y: 300 },
+  { name: "Khanda Kheri", tehsil: "Adampur", x: 190, y: 350 },
+  { name: "Hansi", tehsil: "Hansi", x: 560, y: 380 },
+  { name: "Satrod Khurd", tehsil: "Hansi", x: 600, y: 330 },
+  { name: "Mirkan", tehsil: "Hansi", x: 520, y: 430 },
+  { name: "Barwala", tehsil: "Barwala", x: 470, y: 300 },
+  { name: "Narnaund", tehsil: "Narnaund", x: 620, y: 450 },
+  { name: "Dhansu", tehsil: "Narnaund", x: 650, y: 380 },
+  { name: "Uklana", tehsil: "Uklana", x: 330, y: 300 },
+  { name: "Bass", tehsil: "Bass", x: 420, y: 250 },
+  { name: "Agroha", tehsil: "Hisar", x: 250, y: 365 },
+  // Outside Hisar district: plotted by real-world direction from Hisar (approx.)
+  { name: "Fatehabad", x: 105, y: 305, outside: true },
+  { name: "Tohana", x: 150, y: 262, outside: true },
+  { name: "Ratia", x: 160, y: 395, outside: true },
+  { name: "Hanumangarh", x: 75, y: 360, outside: true },
+  { name: "Churu", x: 110, y: 465, outside: true },
+  { name: "Bhiwani", x: 390, y: 608, outside: true },
+  { name: "Mahendragarh", x: 340, y: 625, outside: true },
+  { name: "Narwana", x: 540, y: 230, outside: true },
+  { name: "Karnal", x: 700, y: 350, outside: true },
+  { name: "Gurgaon", x: 730, y: 470, outside: true },
+  { name: "Azamgarh", x: 690, y: 520, outside: true },
 ];
+
+const villageLookup = villages.reduce((acc, v) => {
+  acc[normalizeCityName(v.name)] = v;
+  return acc;
+}, {});
 
 const emptyDots = (() => {
   const r = rng(42);
@@ -302,15 +234,7 @@ const emptyDots = (() => {
   return pts;
 })();
 
-const TEHSILS = [
-  "All tehsils",
-  ...Array.from(new Set(villages.map((v) => v.tehsil))),
-];
-const METRICS = [
-  { key: "c", label: "Customers", fmt: (v) => v },
-  { key: "s", label: "Sales", fmt: (v) => `${v} jobs` },
-  { key: "r", label: "Revenue", fmt: (v) => `₹${v} L` },
-];
+const METRICS = [{ key: "c", label: "Customers" }];
 
 const dotColor = (t) => {
   // light violet -> deep violet
@@ -323,37 +247,37 @@ const dotColor = (t) => {
 /* ---------- component ---------- */
 export default function Dashboard() {
   const navigate = useNavigate();
+  const showToast = useToast();
+
   const [range, setRange] = useState("30D");
   const [metric, setMetric] = useState("c");
   const [hovered, setHovered] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [hoveredStage, setHoveredStage] = useState(null);
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
-  const [tehsil, setTehsil] = useState("All tehsils");
-  const [onlyWith, setOnlyWith] = useState(false);
+
   const [attention, setAttention] = useState([]);
   const [attentionLoading, setAttentionLoading] = useState(true);
   const [reminded, setReminded] = useState({});
   const [remindingId, setRemindingId] = useState(null);
 
+  const [cityCounts, setCityCounts] = useState([]);
+  const [cityLoading, setCityLoading] = useState(true);
+
+  const [jobRevenue, setJobRevenue] = useState(null);
+  const [jobRevenueLoading, setJobRevenueLoading] = useState(true);
+
   const [dashboardData, setDashboardData] = useState({
-    totalUsers: 0,
-    totalActiveUsers: 0,
-    totalDeactiveUsers: 0,
     totalCustomers: 0,
     totalFavouriteCustomers: 0,
-    totalActiveCustomers: 0,
-    totalDeactiveCustomers: 0,
     totalPendingJobs: 0,
     totalCompletedJobs: 0,
     totalDeliverdJobs: 0,
-
     lastSevenDaysAmount: 0,
     lastOneMonthAmount: 0,
     lastOneYearAmount: 0,
     allTimeAmount: 0,
-
-    totalEntries: 0,
     pending: 0,
     completed: 0,
     delivered: 0,
@@ -361,14 +285,43 @@ export default function Dashboard() {
     dead: 0,
     readyToShip: 0,
   });
-
   const [dashboardLoading, setDashboardLoading] = useState(true);
+
+  /* ---------- API calls ---------- */
+  useEffect(() => {
+    const fetchJobRevenue = async () => {
+      try {
+        const response = await getJobRevenue();
+        if (response?.success) setJobRevenue(response.data);
+      } catch (error) {
+        console.error("Job Revenue API Error:", error);
+      } finally {
+        setJobRevenueLoading(false);
+      }
+    };
+    fetchJobRevenue();
+  }, []);
+
+  useEffect(() => {
+    const fetchCustomerCityCount = async () => {
+      try {
+        const response = await getCustomerCityCount();
+        if (response?.success && Array.isArray(response.data)) {
+          setCityCounts(response.data);
+        }
+      } catch (error) {
+        console.error("Customer City Count API Error:", error);
+      } finally {
+        setCityLoading(false);
+      }
+    };
+    fetchCustomerCityCount();
+  }, []);
 
   useEffect(() => {
     const fetchOverdueDeliveries = async () => {
       try {
         const response = await getOverdueDeliveries();
-
         if (response?.success && Array.isArray(response.data)) {
           setAttention(response.data);
         }
@@ -378,8 +331,23 @@ export default function Dashboard() {
         setAttentionLoading(false);
       }
     };
-
     fetchOverdueDeliveries();
+  }, []);
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const response = await getDashboardData();
+        if (response?.success && response?.data) {
+          setDashboardData(response.data);
+        }
+      } catch (error) {
+        console.error("Dashboard API Error:", error);
+      } finally {
+        setDashboardLoading(false);
+      }
+    };
+    fetchDashboard();
   }, []);
 
   const handleSendReminder = async (jobId) => {
@@ -402,55 +370,57 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        const response = await getDashboardData();
-
-        if (response?.success && response?.data) {
-          setDashboardData(response.data);
-        }
-      } catch (error) {
-        console.error("Dashboard API Error:", error);
-      } finally {
-        setDashboardLoading(false);
-      }
-    };
-
-    fetchDashboard();
-  }, []);
-
+  /* ---------- derived data ---------- */
   const rev = revenueByRange[range];
-  const m = METRICS.find((x) => x.key === metric);
   const today = new Date().toLocaleDateString("en-IN", {
     weekday: "long",
     day: "numeric",
     month: "long",
   });
 
+  const cityVillages = useMemo(() => {
+    return cityCounts.map((item) => {
+      const name = item.cityName?.trim() || "Unknown";
+      const existing = villageLookup[normalizeCityName(name)];
+
+      return {
+        name,
+        tehsil: existing?.tehsil,
+        c: Number(item.totalCustomer || 0),
+        r: Number(item.revenue || 0),
+        x: existing?.x,
+        y: existing?.y,
+        shop: existing?.shop || false,
+        outside: existing?.outside || false,
+      };
+    });
+  }, [cityCounts]);
+
   const maxVal = useMemo(
-    () => Math.max(...villages.map((v) => v[metric])),
-    [metric],
-  );
-  const maxNoShop = useMemo(
-    () => Math.max(...villages.filter((v) => !v.shop).map((v) => v[metric])),
-    [metric],
+    () => Math.max(...cityVillages.map((v) => v[metric]), 1),
+    [metric, cityVillages],
   );
 
-  const list = useMemo(
-    () =>
-      villages
-        .filter((v) => v.name.toLowerCase().includes(q.toLowerCase()))
-        .filter((v) => tehsil === "All tehsils" || v.tehsil === tehsil)
-        .filter((v) => !onlyWith || v.c > 0)
-        .sort((a, b) => b[metric] - a[metric]),
-    [q, tehsil, onlyWith, metric],
+  const totalCityCustomers = useMemo(
+    () => cityVillages.reduce((a, v) => a + v.c, 0),
+    [cityVillages],
+  );
+
+  const list = useMemo(() => {
+    return cityVillages
+      .filter((item) =>
+        item.name.toLowerCase().includes(q.trim().toLowerCase()),
+      )
+      .sort((a, b) => b.c - a.c);
+  }, [cityVillages, q]);
+
+  const cityListMax = useMemo(
+    () => Math.max(...list.map((v) => v.c), 1),
+    [list],
   );
 
   const active = hovered || selected;
-  const activeV = villages.find((v) => v.name === active);
-
-  const toNum = (v) => Number(v) || 0;
+  const activeV = cityVillages.find((v) => v.name === active);
 
   const stages = [
     { name: "Pending", value: toNum(dashboardData.pending), color: "#b7add8" },
@@ -474,8 +444,6 @@ export default function Dashboard() {
   ];
 
   const pieTotal = stages.reduce((a, s) => a + s.value, 0);
-
-  const [hoveredStage, setHoveredStage] = useState(null);
 
   const goToStage = (stage) => {
     navigate(`/jobs?status=${encodeURIComponent(stage.name)}`);
@@ -580,18 +548,16 @@ export default function Dashboard() {
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-4">
             <strong className="text-4xl font-bold tracking-tight text-slate-900">
-              ₹
-              {Number(
+              {inr(
                 range === "7D"
                   ? dashboardData.lastSevenDaysAmount
                   : range === "30D"
                     ? dashboardData.lastOneMonthAmount
                     : dashboardData.lastOneYearAmount,
-              ).toLocaleString("en-IN")}
+              )}
             </strong>
             <p className="text-sm text-slate-500">
-              All Time Revenue: ₹
-              {Number(dashboardData.allTimeAmount).toLocaleString("en-IN")}
+              All Time Revenue: {inr(dashboardData.allTimeAmount)}
             </p>
             <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
               {rev.change} vs previous{" "}
@@ -649,7 +615,7 @@ export default function Dashboard() {
                 />
                 <Tooltip
                   formatter={(v, n) => [
-                    `₹${Number(v).toLocaleString("en-IN")}`,
+                    inr(v),
                     n === "current" ? "Current" : "Previous",
                   ]}
                   contentStyle={{
@@ -786,7 +752,7 @@ export default function Dashboard() {
               Customers across Hisar district
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Hover a village to see who is there. Click it to open the details.
+              Hover or tap a city or village to see customers and revenue.
             </p>
           </div>
           <div className="flex rounded-full bg-[#f5f3fb] p-1">
@@ -816,23 +782,11 @@ export default function Dashboard() {
               {emptyDots.map(([x, y], i) => (
                 <circle key={i} cx={x} cy={y} r={2.2} fill="#cfc8e6" />
               ))}
-              {villages
-                .filter((v) => v.c === 0)
-                .map((v) => (
-                  <circle
-                    key={v.name}
-                    cx={v.x}
-                    cy={v.y}
-                    r={2.6}
-                    fill="#cfc8e6"
-                  />
-                ))}
-              {villages
-                .filter((v) => v.c > 0)
+              {cityVillages
+                .filter((v) => v.c > 0 && v.x != null && v.y != null)
                 .map((v) => {
-                  const val = v[metric];
-                  const t = v.shop ? 1 : Math.min(val / maxNoShop, 1);
-                  const r = v.shop ? 13 : 6 + Math.sqrt(t) * 9;
+                  const t = Math.min(v.c / maxVal, 1);
+                  const r = 5 + Math.sqrt(t) * 10;
                   const on = active === v.name;
                   return (
                     <g
@@ -860,14 +814,15 @@ export default function Dashboard() {
                         cy={v.y}
                         r={r}
                         fill={v.shop ? "#1a1033" : dotColor(t)}
-                        stroke="#fff"
+                        stroke={v.outside ? "#7654f5" : "#fff"}
                         strokeWidth={1.5}
+                        strokeDasharray={v.outside ? "3 2" : undefined}
                       />
-                      {(v.shop || t > 0.45) && (
+                      {
                         <text
                           x={v.x + r + 4}
                           y={v.y + 4}
-                          fontSize={13}
+                          fontSize={on || v.shop ? 13 : 11}
                           fontWeight={600}
                           fill="#2a2150"
                           style={{ paintOrder: "stroke" }}
@@ -876,49 +831,98 @@ export default function Dashboard() {
                         >
                           {v.name}
                         </text>
-                      )}
+                      }
                     </g>
                   );
                 })}
             </svg>
 
             {/* Tooltip */}
-            {activeV && (
+            {activeV && activeV.x != null && activeV.y != null && (
               <div
                 className="pointer-events-none absolute z-10 w-[270px] rounded-2xl bg-white p-4 shadow-xl shadow-violet-200/60 ring-1 ring-violet-100"
                 style={{
                   left: `${Math.min(Math.max((activeV.x / MAP_W) * 100, 18), 82)}%`,
                   top: `${(activeV.y / MAP_H) * 100}%`,
-                  transform: "translate(-50%, calc(-100% - 22px))",
+                  transform:
+                    activeV.y / MAP_H < 0.28
+                      ? "translate(-50%, 22px)"
+                      : "translate(-50%, calc(-100% - 22px))",
                 }}
               >
-                <p className="text-base font-bold text-slate-900">
-                  {activeV.name}
-                </p>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  {activeV.shop ? "Your shop is here · " : ""}
-                  {activeV.tehsil} {activeV.shop ? "" : "tehsil"}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-base font-bold text-slate-900">
+                      {activeV.name}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {activeV.shop ? "Your shop is here · " : ""}
+                      {activeV.outside
+                        ? "Outside Hisar district · approx. position"
+                        : activeV.tehsil
+                          ? `${activeV.tehsil}${activeV.shop ? "" : " tehsil"}`
+                          : "Hisar district"}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-bold text-violet-700">
+                    #{list.findIndex((x) => x.name === activeV.name) + 1}
+                  </span>
+                </div>
+
                 <div className="mt-3 space-y-2 text-sm">
-                  <div className="flex justify-between text-slate-500">
-                    Customers <b className="text-violet-600">{activeV.c}</b>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Customers</span>
+                    <b className="text-violet-600">
+                      {activeV.c.toLocaleString("en-IN")}
+                    </b>
                   </div>
-                  <div className="flex justify-between text-slate-500">
-                    Sales <b className="text-slate-900">{activeV.s} jobs</b>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Revenue</span>
+                    <b className="text-emerald-700">
+                      {cityLoading ? "..." : inr(activeV.r)}
+                    </b>
                   </div>
-                  <div className="flex justify-between text-slate-500">
-                    Revenue <b className="text-slate-900">₹{activeV.r} L</b>
+                  {/* <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Avg / customer</span>
+                    <b className="text-slate-900">
+                      {activeV.c
+                        ? inr(Math.round(activeV.r / activeV.c))
+                        : "₹0"}
+                    </b>
+                  </div> */}
+                </div>
+
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Share of all customers</span>
+                    <span className="font-bold text-slate-700">
+                      {totalCityCustomers
+                        ? ((activeV.c / totalCityCustomers) * 100).toFixed(1)
+                        : 0}
+                      %
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-violet-100">
+                    <div
+                      className="h-full rounded-full bg-violet-600"
+                      style={{
+                        width: `${totalCityCustomers ? Math.max((activeV.c / totalCityCustomers) * 100, 3) : 0}%`,
+                      }}
+                    />
                   </div>
                 </div>
-                <p className="mt-3 text-sm font-bold text-violet-600">
-                  Click for details
+
+                <p className="mt-3 text-xs font-bold text-violet-600">
+                  {selected === activeV.name
+                    ? "Click to unpin"
+                    : "Click to pin"}
                 </p>
               </div>
             )}
 
             {/* Legend */}
             <div className="absolute inset-x-5 bottom-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 Fewer
                 <span className="flex h-2.5 w-36 overflow-hidden rounded-full">
                   {[0, 0.25, 0.5, 0.75, 1].map((t) => (
@@ -934,11 +938,14 @@ export default function Dashboard() {
                   <i className="h-3 w-3 rounded-full bg-[#cfc8e6]" /> No
                   customers yet
                 </span>
+                <span className="ml-3 flex items-center gap-1.5">
+                  <i className="h-3 w-3 rounded-full bg-[#1a1033]" /> Shop
+                </span>
+                <span className="ml-3 flex items-center gap-1.5">
+                  <i className="h-3 w-3 rounded-full border border-dashed border-violet-600 bg-violet-200" />{" "}
+                  Outside district
+                </span>
               </div>
-              <span className="flex items-center gap-1.5">
-                <i className="h-3.5 w-3.5 rounded-full border-[3px] border-slate-900 bg-white" />{" "}
-                Your shop
-              </span>
             </div>
           </div>
 
@@ -948,39 +955,53 @@ export default function Dashboard() {
               Hisar district
             </p>
             <p className="mt-1 text-sm text-slate-500">
-              97 of 267 villages have customers, plus Hisar city
+              Customer distribution across available cities and villages
             </p>
 
-            <div className="dashboard-stagger mt-4 grid grid-cols-3 gap-3">
+            <div className="dashboard-stagger mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
               {[
-                { l: "Customers", v: "1,129" },
-                { l: "Sales", v: "1,329" },
-                { l: "Revenue", v: "₹29.7 L" },
+                {
+                  l: "Total Customers",
+                  v: Number(jobRevenue?.totalCustomer || 0).toLocaleString(
+                    "en-IN",
+                  ),
+                },
+                {
+                  l: "Pending Customers",
+                  v: Number(jobRevenue?.pendingCustomer || 0).toLocaleString(
+                    "en-IN",
+                  ),
+                },
+                {
+                  l: "Total Revenue",
+                  v: inr(jobRevenue?.revenue),
+                },
               ].map((s) => (
                 <div
                   key={s.l}
-                  className="dashboard-card rounded-xl bg-[#f7f5fd] p-4"
+                  className="dashboard-card min-w-0 rounded-xl bg-[#f7f5fd] p-4"
                 >
                   <p className="text-xs text-slate-500">{s.l}</p>
-                  <p className="mt-1 text-xl font-bold text-slate-900">{s.v}</p>
+                  <p className="mt-1 break-words text-lg font-bold text-slate-900 sm:text-xl">
+                    {jobRevenueLoading ? "..." : s.v}
+                  </p>
                 </div>
               ))}
             </div>
 
-            <div className="dashboard-card mt-4 rounded-xl bg-amber-50 px-4 py-3.5 text-sm text-amber-900">
-              Hisar city brings 26% of your customers. 170 villages have no
-              customers yet.
-            </div>
-
             <div className="mt-5 flex items-center justify-between">
-              <h4 className="text-sm font-bold text-slate-900">All villages</h4>
+              <h4 className="text-sm font-bold text-slate-900">
+                City / Village Customer Count
+              </h4>
               <span className="text-xs text-slate-500">
-                {list.length} shown, by {m.label.toLowerCase()}
+                {cityLoading
+                  ? "Loading..."
+                  : `${list.length} cities / villages shown`}
               </span>
             </div>
 
-            <div className="mt-3 flex gap-3">
-              <div className="flex flex-1 items-center gap-2 rounded-full border border-violet-100 px-4 py-2.5">
+            <div className="mt-3">
+              <div className="flex w-full items-center gap-2 rounded-full border border-violet-100 px-4 py-3">
                 <Search size={15} className="text-slate-400" />
                 <input
                   value={q}
@@ -989,81 +1010,79 @@ export default function Dashboard() {
                   className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
                 />
               </div>
-              <div className="relative">
-                <select
-                  value={tehsil}
-                  onChange={(e) => setTehsil(e.target.value)}
-                  className="h-full cursor-pointer appearance-none rounded-full border border-violet-100 bg-white py-2.5 pl-4 pr-9 text-sm text-slate-700 outline-none"
-                >
-                  {TEHSILS.map((t) => (
-                    <option key={t}>{t}</option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={15}
-                  className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-              </div>
             </div>
 
-            <label className="mt-3 flex cursor-pointer items-center gap-3 text-sm text-slate-700">
-              <button
-                type="button"
-                onClick={() => setOnlyWith(!onlyWith)}
-                className={`relative h-6 w-11 rounded-full transition ${onlyWith ? "bg-violet-600" : "bg-slate-300"}`}
-              >
-                <i
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${onlyWith ? "left-[22px]" : "left-0.5"}`}
-                />
-              </button>
-              Only villages with customers
-            </label>
-
-            <div className="mt-4 max-h-[330px] space-y-4 overflow-y-auto pr-2">
-              {list.map((v) => {
-                const val = v[metric];
-                const on = active === v.name;
-                return (
-                  <button
-                    key={v.name}
-                    onMouseEnter={() => setHovered(v.name)}
-                    onMouseLeave={() => setHovered(null)}
-                    onClick={() =>
-                      setSelected(selected === v.name ? null : v.name)
-                    }
-                    className={`block w-full rounded-xl px-2 py-1.5 text-left transition ${on ? "bg-violet-50" : "hover:bg-violet-50/50"}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <b className="text-sm text-slate-900">{v.name}</b>
-                      <b className="text-sm text-slate-900">{val}</b>
-                    </div>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {v.shop
-                        ? "Your shop · walk-in customers"
-                        : `${v.tehsil} tehsil · ${v.c} customers · ${v.s} sales`}
-                    </p>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-violet-100">
-                      <div
-                        className="h-full rounded-full bg-violet-600 transition-all duration-500"
-                        style={{
-                          width: `${Math.max((val / maxVal) * 100, val ? 3 : 0)}%`,
-                        }}
-                      />
-                    </div>
-                  </button>
-                );
-              })}
-              {list.length === 0 && (
-                <p className="py-6 text-center text-sm text-slate-400">
-                  No village found
+            <div className="mt-4 max-h-[400px] space-y-1 overflow-y-auto pr-2 custom-scrollbar">
+              {cityLoading ? (
+                <p className="py-6 text-center text-sm text-slate-500">
+                  Loading city data...
                 </p>
+              ) : list.length === 0 ? (
+                <p className="py-6 text-center text-sm text-slate-400">
+                  No city or village found
+                </p>
+              ) : (
+                list.map((v, i) => {
+                  const on = active === v.name;
+                  const onMap = v.x != null && v.y != null;
+                  return (
+                    <button
+                      type="button"
+                      key={v.name}
+                      onMouseEnter={() => onMap && setHovered(v.name)}
+                      onMouseLeave={() => setHovered(null)}
+                      onClick={() =>
+                        onMap &&
+                        setSelected(selected === v.name ? null : v.name)
+                      }
+                      className={`block w-full rounded-xl px-3 py-2.5 text-left transition ${on ? "bg-violet-50 ring-1 ring-violet-200" : "hover:bg-[#f7f5fd]"} ${onMap ? "cursor-pointer" : "cursor-default"}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="w-5 shrink-0 text-xs font-bold text-slate-400">
+                            {i + 1}
+                          </span>
+                          <b className="truncate text-sm text-slate-900">
+                            {v.name}
+                          </b>
+                          {v.shop && (
+                            <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-bold text-white">
+                              Shop
+                            </span>
+                          )}
+                          {!onMap && (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                              Not on map
+                            </span>
+                          )}
+                        </span>
+                        <b className="text-sm text-violet-700">
+                          {v.c.toLocaleString("en-IN")}
+                        </b>
+                      </div>
+
+                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 pl-7 text-xs text-slate-500">
+                        <span>{v.c.toLocaleString("en-IN")} customers</span>
+                        <span>Revenue: {inr(v.r)}</span>
+                      </div>
+                      <div className="ml-7 mt-2 h-1.5 overflow-hidden rounded-full bg-violet-100">
+                        <div
+                          className="h-full rounded-full bg-violet-600 transition-all duration-500"
+                          style={{
+                            width: `${Math.max((v.c / cityListMax) * 100, v.c ? 3 : 0)}%`,
+                          }}
+                        />
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Needs attention + WhatsApp */}
+      {/* Needs attention */}
       <div className="dashboard-stagger mt-5 grid grid-cols-1 gap-5">
         <section className="dashboard-card rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex items-start justify-between">
@@ -1141,9 +1160,8 @@ export default function Dashboard() {
       </div>
 
       <p className="mt-5 text-xs text-slate-500">
-        Sample data for demonstration. The map uses an approximate Hisar
-        district outline and village positions; customer and sales numbers are
-        made up.
+        Customer counts are fetched from the live API. Map locations and
+        district boundaries use predefined approximate coordinates.
       </p>
     </div>
   );
