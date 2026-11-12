@@ -25,7 +25,12 @@ import {
 } from "recharts";
 import StatCard from "../../components/StatCard";
 
-import { getDashboardData } from "../../services/Dashboard";
+import {
+  getDashboardData,
+  getOverdueDeliveries,
+} from "../../services/Dashboard";
+
+import { sendJobReminder } from "../../services/JobService";
 
 /* ---------- helpers ---------- */
 const rng = (seed) => () => {
@@ -102,13 +107,13 @@ const revenueByRange = {
   },
 };
 
-const stages = [
-  { name: "Received", value: 12, color: "#b7add8" },
-  { name: "Diagnosing", value: 8, color: "#5d8cf1" },
-  { name: "Awaiting parts", value: 11, color: "#f3aa39" },
-  { name: "In repair", value: 9, color: "#7654f5" },
-  { name: "Ready", value: 7, color: "#2dbb87" },
-];
+// const stages = [
+//   { name: "Received", value: 12, color: "#b7add8" },
+//   { name: "Diagnosing", value: 8, color: "#5d8cf1" },
+//   { name: "Awaiting parts", value: 11, color: "#f3aa39" },
+//   { name: "In repair", value: 9, color: "#7654f5" },
+//   { name: "Ready", value: 7, color: "#2dbb87" },
+// ];
 
 const attention = [
   { id: "#1612", name: "Heena Rao", days: 9 },
@@ -326,7 +331,10 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [tehsil, setTehsil] = useState("All tehsils");
   const [onlyWith, setOnlyWith] = useState(false);
+  const [attention, setAttention] = useState([]);
+  const [attentionLoading, setAttentionLoading] = useState(true);
   const [reminded, setReminded] = useState({});
+  const [remindingId, setRemindingId] = useState(null);
 
   const [dashboardData, setDashboardData] = useState({
     totalUsers: 0,
@@ -339,9 +347,60 @@ export default function Dashboard() {
     totalPendingJobs: 0,
     totalCompletedJobs: 0,
     totalDeliverdJobs: 0,
+
+    lastSevenDaysAmount: 0,
+    lastOneMonthAmount: 0,
+    lastOneYearAmount: 0,
+    allTimeAmount: 0,
+
+    totalEntries: 0,
+    pending: 0,
+    completed: 0,
+    delivered: 0,
+    return: 0,
+    dead: 0,
+    readyToShip: 0,
   });
 
   const [dashboardLoading, setDashboardLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchOverdueDeliveries = async () => {
+      try {
+        const response = await getOverdueDeliveries();
+
+        if (response?.success && Array.isArray(response.data)) {
+          setAttention(response.data);
+        }
+      } catch (error) {
+        console.error("Overdue Deliveries API Error:", error);
+      } finally {
+        setAttentionLoading(false);
+      }
+    };
+
+    fetchOverdueDeliveries();
+  }, []);
+
+  const handleSendReminder = async (jobId) => {
+    try {
+      setRemindingId(jobId);
+
+      const response = await sendJobReminder(jobId);
+
+      if (response?.success) {
+        setReminded((prev) => ({ ...prev, [jobId]: true }));
+        showToast(response.message || "Reminder sent successfully.");
+      } else {
+        showToast(response?.message || "Unable to send reminder.");
+      }
+    } catch (error) {
+      console.error("Send Reminder Error:", error);
+      showToast(error.response?.data?.message || "Unable to send reminder.");
+    } finally {
+      setRemindingId(null);
+    }
+  };
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -391,7 +450,36 @@ export default function Dashboard() {
   const active = hovered || selected;
   const activeV = villages.find((v) => v.name === active);
 
+  const toNum = (v) => Number(v) || 0;
+
+  const stages = [
+    { name: "Pending", value: toNum(dashboardData.pending), color: "#b7add8" },
+    {
+      name: "Completed",
+      value: toNum(dashboardData.completed),
+      color: "#5d8cf1",
+    },
+    {
+      name: "Delivered",
+      value: toNum(dashboardData.delivered),
+      color: "#2dbb87",
+    },
+    { name: "Return", value: toNum(dashboardData.return), color: "#f3aa39" },
+    { name: "Dead", value: toNum(dashboardData.dead), color: "#ef4444" },
+    {
+      name: "Ready To Ship",
+      value: toNum(dashboardData.readyToShip),
+      color: "#7654f5",
+    },
+  ];
+
   const pieTotal = stages.reduce((a, s) => a + s.value, 0);
+
+  const [hoveredStage, setHoveredStage] = useState(null);
+
+  const goToStage = (stage) => {
+    navigate(`/jobs?status=${encodeURIComponent(stage.name)}`);
+  };
 
   return (
     <div className="dashboard-motion">
@@ -492,8 +580,19 @@ export default function Dashboard() {
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-4">
             <strong className="text-4xl font-bold tracking-tight text-slate-900">
-              {rev.total}
+              ₹
+              {Number(
+                range === "7D"
+                  ? dashboardData.lastSevenDaysAmount
+                  : range === "30D"
+                    ? dashboardData.lastOneMonthAmount
+                    : dashboardData.lastOneYearAmount,
+              ).toLocaleString("en-IN")}
             </strong>
+            <p className="text-sm text-slate-500">
+              All Time Revenue: ₹
+              {Number(dashboardData.allTimeAmount).toLocaleString("en-IN")}
+            </p>
             <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
               {rev.change} vs previous{" "}
               {range === "30D"
@@ -592,40 +691,73 @@ export default function Dashboard() {
               View jobs
             </button>
           </div>
+
           <div className="relative mx-auto mt-6 h-[260px] max-w-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={stages}
+                  data={
+                    pieTotal > 0
+                      ? stages
+                      : [{ name: "Empty", value: 1, color: "#e2e8f0" }]
+                  }
                   dataKey="value"
                   cx="50%"
                   cy="50%"
                   innerRadius={78}
                   outerRadius={106}
-                  paddingAngle={6}
+                  paddingAngle={pieTotal > 0 ? 6 : 0}
                   cornerRadius={10}
                   stroke="none"
                   startAngle={90}
                   endAngle={-270}
+                  onClick={(_, index) => {
+                    if (pieTotal > 0) goToStage(stages[index]);
+                  }}
+                  onMouseEnter={(_, index) => {
+                    if (pieTotal > 0) setHoveredStage(stages[index].name);
+                  }}
+                  onMouseLeave={() => setHoveredStage(null)}
                 >
-                  {stages.map((s, i) => (
-                    <Cell key={i} fill={s.color} />
-                  ))}
+                  {(pieTotal > 0 ? stages : [{ color: "#e2e8f0" }]).map(
+                    (s, i) => (
+                      <Cell
+                        key={i}
+                        fill={s.color}
+                        style={{
+                          cursor: pieTotal > 0 ? "pointer" : "default",
+                          outline: "none",
+                          opacity:
+                            hoveredStage && hoveredStage !== s.name ? 0.35 : 1,
+                          transition: "opacity 0.2s ease",
+                        }}
+                      />
+                    ),
+                  )}
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
               <strong className="text-4xl font-bold text-slate-900">
-                {pieTotal}
+                {hoveredStage
+                  ? stages.find((s) => s.name === hoveredStage)?.value
+                  : pieTotal}
               </strong>
-              <span className="text-sm text-slate-500">Open jobs</span>
+              <span className="text-sm text-slate-500">
+                {hoveredStage ? hoveredStage : "Open jobs"}
+              </span>
             </div>
           </div>
+
           <div className="mt-4 space-y-4">
             {stages.map((s) => (
-              <div
+              <button
+                type="button"
                 key={s.name}
-                className="flex items-center justify-between text-sm"
+                onClick={() => goToStage(s)}
+                onMouseEnter={() => setHoveredStage(s.name)}
+                onMouseLeave={() => setHoveredStage(null)}
+                className="flex w-full items-center justify-between text-sm transition-opacity hover:opacity-80"
               >
                 <span className="flex items-center gap-3 text-slate-600">
                   <i
@@ -637,10 +769,10 @@ export default function Dashboard() {
                 <span className="font-bold text-slate-800">
                   {s.value}
                   <span className="ml-4 inline-block w-10 text-right font-normal text-slate-400">
-                    {Math.round((s.value / pieTotal) * 100)}%
+                    {pieTotal > 0 ? Math.round((s.value / pieTotal) * 100) : 0}%
                   </span>
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -932,7 +1064,7 @@ export default function Dashboard() {
       </section>
 
       {/* Needs attention + WhatsApp */}
-      <div className="dashboard-stagger mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.65fr_0.9fr]">
+      <div className="dashboard-stagger mt-5 grid grid-cols-1 gap-5">
         <section className="dashboard-card rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex items-start justify-between">
             <div>
@@ -950,83 +1082,61 @@ export default function Dashboard() {
               All jobs
             </button>
           </div>
-          <div className="mt-4 space-y-1">
-            {attention.map((a) => (
-              <div
-                key={a.id}
-                className="dashboard-list-item grid grid-cols-[2.5rem_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 rounded-2xl px-2 py-3 transition hover:bg-[#f5f3fb] sm:flex sm:gap-4 sm:px-3 sm:py-3.5"
-              >
-                <span className="font-mono text-[11px] font-bold text-slate-800 sm:w-14 sm:text-sm">
-                  {a.id}
-                </span>
-                <div className="min-w-0 sm:flex-1">
-                  <p className="text-xs font-bold leading-4 text-slate-900 sm:text-sm">
-                    {a.name}
-                  </p>
-                  <p className="mt-0.5 text-xs leading-4 text-red-700 sm:text-sm">
-                    Waiting {a.days} days
-                  </p>
-                </div>
-                <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 sm:gap-1.5 sm:px-3 sm:text-xs">
-                  <i className="h-1.5 w-1.5 rounded-full bg-emerald-600" />{" "}
-                  Ready
-                </span>
-                <button
-                  onClick={() => setReminded((p) => ({ ...p, [a.id]: true }))}
-                  disabled={reminded[a.id]}
-                  className={`min-w-0 whitespace-nowrap rounded-full border px-3 py-2.5 text-xs font-bold transition sm:min-w-[96px] sm:px-5 sm:py-3 sm:text-sm ${reminded[a.id] ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-violet-200 text-violet-700 hover:bg-violet-50"}`}
-                >
-                  {reminded[a.id] ? "Sent ✓" : "Remind"}
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="dashboard-card rounded-[20px] border border-violet-100/80 bg-white p-5 shadow-sm sm:p-6">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-              <MessageCircle size={22} />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">
-                WhatsApp today
-              </h3>
-              <p className="text-sm text-slate-500">
-                Messages sent from the shop number
+          <div className="mt-4 max-h-[420px] space-y-1 overflow-y-auto overflow-x-hidden pr-2">
+            {attentionLoading ? (
+              <p className="py-8 text-center text-sm text-slate-500">
+                Loading overdue deliveries...
               </p>
-            </div>
-          </div>
-          <div className="dashboard-stagger mt-5 space-y-4">
-            {whatsapp.map((w) => (
-              <div key={w.label} className="dashboard-list-item">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700">{w.label}</span>
-                  <b className={w.red ? "text-red-700" : "text-slate-900"}>
-                    {w.value}
-                  </b>
-                </div>
+            ) : attention.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-500">
+                No overdue deliveries found.
+              </p>
+            ) : (
+              attention.map((a) => (
                 <div
-                  className={`mt-1.5 h-2 overflow-hidden rounded-full ${w.track}`}
+                  key={a.id}
+                  className="dashboard-list-item grid grid-cols-[2.5rem_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 rounded-2xl px-2 py-3 transition hover:bg-[#f5f3fb] sm:flex sm:gap-4 sm:px-3 sm:py-3.5"
                 >
-                  <div
-                    className={`h-full rounded-full ${w.bar} transition-all duration-500`}
-                    style={{ width: `${(w.value / w.max) * 100}%` }}
-                  />
+                  <span className="font-mono text-[11px] font-bold text-slate-800 sm:w-14 sm:text-sm">
+                    #{a.jobNo}
+                  </span>
+
+                  <div className="min-w-0 sm:flex-1">
+                    <p className="text-xs font-bold leading-4 text-slate-900 sm:text-sm">
+                      {a.customerName}
+                    </p>
+
+                    <p className="mt-0.5 text-xs leading-4 text-red-700 sm:text-sm">
+                      {a.daysLate === 0
+                        ? "Due today"
+                        : `Waiting ${a.daysLate} days`}
+                    </p>
+                  </div>
+
+                  <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 sm:gap-1.5 sm:px-3 sm:text-xs">
+                    <i className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                    Overdue
+                  </span>
+
+                  <button
+                    onClick={() => handleSendReminder(a.id)}
+                    disabled={reminded[a.id] || remindingId === a.id}
+                    className={`min-w-0 whitespace-nowrap rounded-full border px-3 py-2.5 text-xs font-bold transition sm:min-w-[96px] sm:px-5 sm:py-3 sm:text-sm ${
+                      reminded[a.id]
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-violet-200 text-violet-700 hover:bg-violet-50"
+                    }`}
+                  >
+                    {remindingId === a.id
+                      ? "Sending..."
+                      : reminded[a.id]
+                        ? "Sent ✓"
+                        : "Remind"}
+                  </button>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
-          <div className="mt-5 rounded-2xl bg-[#f5f3fb] px-4 py-3.5 text-sm text-slate-600">
-            Pickup OTP is generated fresh for every Ready message and checked at
-            the counter.
-          </div>
-          <button
-            onClick={() => navigate("/whatsapp")}
-            className="mt-4 w-full rounded-full border border-violet-200 py-3.5 text-sm font-bold text-violet-700 transition hover:bg-violet-50"
-          >
-            Open WhatsApp Center
-          </button>
         </section>
       </div>
 
